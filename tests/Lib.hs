@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Main where
+module Lib where
 
 import           Control.Applicative
 import           Control.Monad
@@ -10,21 +10,14 @@ import qualified Data.ByteString.Lazy           as LBS
 import           Data.Char                      (toLower)
 import qualified Data.HashMap.Strict            as H
 import           Data.JsonSchema
-import           Data.List                      (isSuffixOf)
 import           Data.Monoid
 import           Data.Text                      (Text)
 import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
-import           System.Directory               (getDirectoryContents)
 import           System.FilePath                ((</>))
 import           Test.Framework
 import           Test.Framework.Providers.HUnit
 import qualified Test.HUnit                     as HU
-
-main :: IO ()
-main = do
-  ts <- readSchemaTests
-  defaultMain (toTest <$> ts)
 
 data SchemaTest = SchemaTest
   { _stDescription :: Text
@@ -48,21 +41,30 @@ instance FromJSON SchemaTest where
     <*> o .: "schema"
     <*> o .: "tests" -- I wish this were "cases"
 
-readSchemaTests :: IO [SchemaTest]
-readSchemaTests = do
-  jsonFiles <- filter (".json" `isSuffixOf`) <$> getDirectoryContents dir
-  fmap concat $ forM jsonFiles $ \file -> do
-    let fullPath = dir </> file
-    jsonBS <- LBS.readFile fullPath
-    case eitherDecode jsonBS of
-      Left err      -> fail $ "couldn't parse file '" <> fullPath <> "': " <> err
-      Right schemas -> return $ prependFileName file <$> schemas
+isLocal :: String -> Bool
+isLocal file = (file /= "definitions.json")
+            && (file /= "ref.json")
+            && (file /= "refRemote.json")
+
+readSchemaTests :: String -> [String] -> IO [SchemaTest]
+readSchemaTests dir jsonFiles = concatMapM fileToCases jsonFiles
   where
-    dir = "JSON-Schema-Test-Suite/tests/draft4"
+    -- Each file contains an array of SchemaTests, not just one.
+    fileToCases :: String -> IO [SchemaTest]
+    fileToCases name = do
+      let fullPath = dir </> name
+      jsonBS <- LBS.readFile fullPath
+      case eitherDecode jsonBS of
+        Left e -> fail $ "couldn't parse file '" <> fullPath <> "': " <> e
+        Right schemaTests -> return $ prependFileName name <$> schemaTests
+
     prependFileName :: String -> SchemaTest -> SchemaTest
     prependFileName fileName s = s
       { _stDescription = T.pack fileName <> ": " <> _stDescription s
       }
+
+    concatMapM :: (Monad m) => (a -> m [b]) -> [a] -> m [b]
+    concatMapM f xs = liftM concat (mapM f xs)
 
 toTest :: SchemaTest -> Test
 toTest st = testGroup groupName (mkCase <$> _stCases st)

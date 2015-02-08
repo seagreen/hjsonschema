@@ -1,6 +1,6 @@
-module Data.JsonSchema.JsonReference where
-
 -- | There should be a JSON Reference library for haskell.
+
+module Data.JsonSchema.JsonReference where
 
 import           Control.Exception
 import           Control.Lens
