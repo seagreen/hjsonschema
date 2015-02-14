@@ -9,7 +9,9 @@ import           Data.Text                     (Text)
 import           Data.Vector                   (Vector)
 import qualified Data.Vector                   as V
 
-newtype Spec = Spec { _unSpec :: HashMap Text ValidatorGen }
+newtype Spec = Spec
+  { _unSpec :: HashMap Text (ValidatorGen, Text -> Value -> Vector RawSchema)
+  }
 
 -- | Set of potentially mutually recursive schemas.
 type Graph = HashMap Text (HashMap Text Value)
@@ -31,8 +33,8 @@ compile :: Spec -> Graph -> RawSchema -> Schema
 compile spec g (RawSchema t o) =
   V.fromList . catMaybes . H.elems $ H.intersectionWith f (_unSpec spec) o
   where
-    f :: ValidatorGen -> Value -> Maybe Validator
-    f vGen = vGen spec g $ RawSchema (updateId t o) o
+    f :: (ValidatorGen, a) -> Value -> Maybe Validator
+    f (vGen,_) = vGen spec g $ RawSchema (updateId t o) o
 
 validate :: Schema -> Value -> Vector ValErr
 validate s x = s >>= ($ x)

@@ -6,7 +6,7 @@ An implementation of [JSON Schema](http://json-schema.org/) v4 in haskell.
 
 Still in development. Lacks documentation, example code, and real error messages.
 
-Also while all the official tests pass, its implementation of the `$ref` and `id` keywords is incomplete.
+Also while the official tests pass, its handling of the `id` keyword is incomplete.
 
 # Install Tests
 

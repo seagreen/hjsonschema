@@ -8,11 +8,15 @@
 -- This module exposes three types of functions. To describe
 -- them we'll use the properties validators as an example.
 --
--- 1. Functions that aren't followed by apostrophes have the
+-- 1. Functions which describe how subschemas (if any)
+-- are embedded in this validator. This is how 'fetchRefs'
+-- is able to find "$refs" and "ids".
+--
+-- 2. Functions that aren't followed by apostrophes have the
 -- type 'ValidatorGen' and are meant to be used in a 'Spec'.
 -- Examples are 'properties' and 'additionalProperties'.
 --
--- 2. Functions that are followed by a single apostrophe, such
+-- 3. Functions that are followed by a single apostrophe, such
 -- as 'additionalProperties'', aren't meant to be used standalone
 -- in a 'Spec'. Instead they're used by other validators. For
 -- instance, 'additionalProperties' disables itself if the key
@@ -21,7 +25,7 @@
 -- 'additionalProperties' in 'additionalProperties'' allows for
 -- code reuse between 'properties' and 'additionalProperties'.
 --
--- 3. Functions that are followed by a double apostrophe, such
+-- 4. Functions that are followed by a double apostrophe, such
 -- as 'patternProperties''', return an enhanced validator. It
 -- not only reports errors, but also the parts of the target
 -- data that it matches. These functions also aren't used in
@@ -48,6 +52,31 @@ import           Data.Traversable
 import           Data.Vector                   (Vector)
 import qualified Data.Vector                   as V
 import           Text.RegexPR
+
+--------------------------------------------------
+-- Embedded Schema Layouts
+--------------------------------------------------
+
+noEm :: Text -> Value -> Vector RawSchema
+noEm _ _ = V.empty
+
+objEmbed :: Text -> Value -> Vector RawSchema
+objEmbed t (Object o) = V.singleton $ RawSchema t o
+objEmbed _ _ = V.empty
+
+-- TODO: optimize
+arrayEmbed :: Text -> Value -> Vector RawSchema
+arrayEmbed t (Array vs) = V.concat . V.toList $ (\o -> objEmbed t o) <$> vs
+arrayEmbed _ _ = V.empty
+
+objOrArrayEmbed :: Text -> Value -> Vector RawSchema
+objOrArrayEmbed t v@(Object _) = objEmbed t v
+objOrArrayEmbed t v@(Array _) = arrayEmbed t v
+objOrArrayEmbed _ _ = V.empty
+
+objMembersEmbed :: Text -> Value -> Vector RawSchema
+objMembersEmbed t (Object o) = V.concat $ (\x -> objEmbed t x) <$> H.elems o
+objMembersEmbed _ _ = V.empty
 
 --------------------------------------------------
 -- Number Validators
@@ -495,3 +524,6 @@ ref spec g s (String val) = do
         (Object o) -> Just $ RawSchema (_rsURI rawS) o
         _           -> Nothing
 ref _ _ _ _ = Nothing
+
+noVal :: ValidatorGen
+noVal = (\_ _ _ _ -> Just (const V.empty))

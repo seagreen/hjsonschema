@@ -4,7 +4,6 @@ module Data.JsonSchema
   ) where
 
 import           Control.Applicative
-import           Data.Aeson
 import           Data.Foldable
 import qualified Data.HashMap.Strict           as H
 import           Data.JsonSchema.Core
@@ -12,7 +11,6 @@ import           Data.JsonSchema.JsonReference
 import           Data.JsonSchema.Utils
 import           Data.JsonSchema.Validators
 import           Data.Maybe
-import           Data.Text                     (Text)
 import qualified Data.Text                     as T
 import           Data.Vector                   (Vector)
 import qualified Data.Vector                   as V
@@ -20,50 +18,47 @@ import           Prelude                       hiding (foldr)
 
 draft4 :: Spec
 draft4 = Spec $ H.fromList
-  [ ("$ref", ref)
-  , ("multipleOf", multipleOf)
-  , ("maximum", maximumVal)
-  , ("minimum", minimumVal)
-  , ("maxLength", maxLength)
-  , ("minLength", minLength)
-  , ("pattern", pattern)
-  , ("items", items)
-  , ("maxItems", maxItems)
-  , ("minItems", minItems)
-  , ("uniqueItems", uniqueItems)
-  , ("maxProperties", maxProperties)
-  , ("minProperties", minProperties)
-  , ("required", required)
-  , ("properties", properties)
-  , ("patternProperties", patternProperties)
-  , ("additionalProperties", additionalProperties)
-  , ("dependencies", dependencies)
-  , ("enum", enum)
-  , ("type", typeVal)
-  , ("allOf", allOf)
-  , ("anyOf", anyOf)
-  , ("oneOf", oneOf)
-  , ("not", notValidator)
+  [ ("$ref"                , (ref                 , noEm))
+  , ("multipleOf"          , (multipleOf          , noEm))
+  , ("maximum"             , (maximumVal          , noEm))
+  , ("minimum"             , (minimumVal          , noEm))
+  , ("maxLength"           , (maxLength           , noEm))
+  , ("minLength"           , (minLength           , noEm))
+  , ("pattern"             , (pattern             , noEm))
+  , ("additionalItems"     , (noVal               , objEmbed))
+  , ("items"               , (items               , objOrArrayEmbed))
+  , ("maxItems"            , (maxItems            , noEm))
+  , ("minItems"            , (minItems            , noEm))
+  , ("uniqueItems"         , (uniqueItems         , noEm))
+  , ("maxProperties"       , (maxProperties       , noEm))
+  , ("minProperties"       , (minProperties       , noEm))
+  , ("required"            , (required            , noEm))
+  , ("properties"          , (properties          , objMembersEmbed))
+  , ("patternProperties"   , (patternProperties   , objMembersEmbed))
+  , ("additionalProperties", (additionalProperties, objEmbed))
+  , ("dependencies"        , (dependencies        , objMembersEmbed))
+  , ("enum"                , (enum                , noEm))
+  , ("type"                , (typeVal             , noEm))
+  , ("allOf"               , (allOf               , arrayEmbed))
+  , ("anyOf"               , (anyOf               , arrayEmbed))
+  , ("oneOf"               , (oneOf               , arrayEmbed))
+  , ("not"                 , (notValidator        , objEmbed))
+  , ("definitions"         , (noVal               , objMembersEmbed))
   ]
 
-fetchRefs :: RawSchema -> Graph -> IO Graph
-fetchRefs a graph =
-  let newGraph = H.insert (_rsURI a) (_rsObject a) graph
-      rSchema = allEmbedded (_rsURI a, Object $ _rsObject a) V.empty
-  in foldlM fetch newGraph rSchema
+fetchRefs :: Spec -> RawSchema -> Graph -> IO Graph
+fetchRefs spec a graph =
+  let startingGraph = H.insert (_rsURI a) (_rsObject a) graph
+  in foldlM fetch startingGraph (includeEmbedded a)
 
   where
     -- TODO: optimize
-    allEmbedded :: (Text, Value) -> Vector RawSchema -> Vector RawSchema
-    allEmbedded (t, Object o) rs =
-      let t' = updateId t o
-          r = RawSchema t' o
-          ns = (\x -> (t',x)) <$> V.fromList (H.elems o)
-      in foldr allEmbedded (V.snoc rs r) ns
-    allEmbedded (t, Array vs) rs =
-      let ns = (\x -> (t,x)) <$> vs
-      in foldr allEmbedded rs ns
-    allEmbedded _ rs = rs
+    includeEmbedded :: RawSchema -> Vector RawSchema
+    includeEmbedded r =
+      let newId = updateId (_rsURI r) (_rsObject r)
+          xs = H.intersectionWith (\(_,f) x -> f newId x) (_unSpec spec) (_rsObject r)
+          ys = V.concat . H.elems $ xs
+      in V.cons r . V.concat . V.toList $ includeEmbedded <$> ys
 
     fetch :: Graph -> RawSchema -> IO Graph
     fetch g r =
@@ -76,5 +71,5 @@ fetchRefs a graph =
             else do
               eResp <- fetchRef t
               case eResp of
-                Right obj -> fetchRefs (RawSchema t obj) g
+                Right obj -> fetchRefs spec (RawSchema t obj) g
                 _         -> return g
