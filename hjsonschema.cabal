@@ -1,5 +1,5 @@
 name:                   hjsonschema
-version:                0.2.0.0
+version:                0.3.0.0
 synopsis:               Haskell implementation of JSON Schema v4.
 homepage:               https://github.com/seagreen/hjsonschema
 license:                MIT
@@ -42,6 +42,7 @@ test-suite local
   default-language:     Haskell2010
   ghc-options:          -Wall
   default-extensions:   OverloadedStrings
+  other-extensions:     TemplateHaskell
   build-depends:        aeson
                       , base
                       , bytestring
@@ -62,6 +63,7 @@ test-suite remote
   default-language:     Haskell2010
   ghc-options:          -Wall
   default-extensions:   OverloadedStrings
+  other-extensions:     TemplateHaskell
   build-depends:        aeson
                       , base
                       , bytestring

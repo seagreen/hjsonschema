@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Lib where
 
@@ -82,12 +83,18 @@ toTest st = testGroup groupName (mkCase <$> _stCases st)
 
 assertValid, assertInvalid :: RawSchema -> Value -> HU.Assertion
 assertValid r v = do
-  g <- fetchRefs draft4 r H.empty
+  g <- assertRight =<< fetchRefs draft4 r H.empty
   let es = validate (compile draft4 g r) v
   unless (V.length es == 0) $ HU.assertFailure (show es)
 assertInvalid r v = do
-  g <- fetchRefs draft4 r H.empty
+  g <- assertRight =<< fetchRefs draft4 r H.empty
   let es = validate (compile draft4 g r) v
   when (V.length es == 0) $ HU.assertFailure "expected a validation error"
+
+assertRight :: (Show a) => Either a b -> IO b
+assertRight a =
+  case a of
+    Left e  -> HU.assertFailure (show e) >> fail "assertRight failed"
+    Right b -> return b
 
 $(deriveFromJSON defaultOptions { fieldLabelModifier = map toLower . drop 3 } ''SchemaTestCase)

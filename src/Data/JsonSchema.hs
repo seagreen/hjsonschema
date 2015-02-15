@@ -11,6 +11,7 @@ import           Data.JsonSchema.JsonReference
 import           Data.JsonSchema.Utils
 import           Data.JsonSchema.Validators
 import           Data.Maybe
+import           Data.Text                     (Text)
 import qualified Data.Text                     as T
 import           Data.Vector                   (Vector)
 import qualified Data.Vector                   as V
@@ -46,30 +47,31 @@ draft4 = Spec $ H.fromList
   , ("definitions"         , (noVal               , objMembersEmbed))
   ]
 
-fetchRefs :: Spec -> RawSchema -> Graph -> IO Graph
+fetchRefs :: Spec -> RawSchema -> Graph -> IO (Either Text Graph)
 fetchRefs spec a graph =
   let startingGraph = H.insert (_rsURI a) (_rsObject a) graph
-  in foldlM fetch startingGraph (includeEmbedded a)
+  in foldlM fetch (Right startingGraph) (includeSubschemas a)
 
   where
     -- TODO: optimize
-    includeEmbedded :: RawSchema -> Vector RawSchema
-    includeEmbedded r =
+    includeSubschemas :: RawSchema -> Vector RawSchema
+    includeSubschemas r =
       let newId = updateId (_rsURI r) (_rsObject r)
           xs = H.intersectionWith (\(_,f) x -> f newId x) (_unSpec spec) (_rsObject r)
           ys = V.concat . H.elems $ xs
-      in V.cons r . V.concat . V.toList $ includeEmbedded <$> ys
+      in V.cons r . V.concat . V.toList $ includeSubschemas <$> ys
 
-    fetch :: Graph -> RawSchema -> IO Graph
-    fetch g r =
+    fetch :: Either Text Graph -> RawSchema -> IO (Either Text Graph)
+    fetch (Right g) r =
       case H.lookup "$ref" (_rsObject r) >>= toTxt >>= refAndP of
-        Nothing     -> return g
+        Nothing     -> return (Right g)
         Just (s, _) ->
           let t = (_rsURI r `combineIdAndRef` s)
           in if T.length t <= 0 || H.member t g || not ("://" `T.isInfixOf` t)
-            then return g
+            then return (Right g)
             else do
               eResp <- fetchRef t
               case eResp of
+                Left e    -> return (Left e)
                 Right obj -> fetchRefs spec (RawSchema t obj) g
-                _         -> return g
+    fetch leftGraph _ = return leftGraph

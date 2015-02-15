@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedLists #-}
-
 -- | This is generally meant to be an internal module.
 -- It's only exposed in case you want to make your own
 -- 'Spec'. If you just want to use JSON Schema Draft 4
@@ -66,7 +64,7 @@ objEmbed _ _ = V.empty
 
 -- TODO: optimize
 arrayEmbed :: Text -> Value -> Vector RawSchema
-arrayEmbed t (Array vs) = V.concat . V.toList $ (\o -> objEmbed t o) <$> vs
+arrayEmbed t (Array vs) = V.concat . V.toList $ objEmbed t <$> vs
 arrayEmbed _ _ = V.empty
 
 objOrArrayEmbed :: Text -> Value -> Vector RawSchema
@@ -75,7 +73,7 @@ objOrArrayEmbed t v@(Array _) = arrayEmbed t v
 objOrArrayEmbed _ _ = V.empty
 
 objMembersEmbed :: Text -> Value -> Vector RawSchema
-objMembersEmbed t (Object o) = V.concat $ (\x -> objEmbed t x) <$> H.elems o
+objMembersEmbed t (Object o) = V.concat $ objEmbed t <$> H.elems o
 objMembersEmbed _ _ = V.empty
 
 --------------------------------------------------
@@ -190,7 +188,7 @@ additionalItems' _ _ _ (Bool val) =
   Just (\x ->
     case x of
       (Array ys) -> if not val && V.length ys > 0
-        then V.singleton "TODO"
+        then V.singleton ("Val error against additionalItems false for: " <> tshow x)
         else mempty
       _ -> mempty)
 additionalItems' spec g s (Object val) =
@@ -230,7 +228,8 @@ uniqueItems _ _ _ (Bool val) = do
     case x of
       (Array ys) -> if allUnique ys
         then mempty
-        else V.singleton "TODO"
+        else V.singleton
+          ("Val error against uniqueItems " <> tshow val <> " for: " <> tshow x)
       _ -> mempty)
 uniqueItems _ _ _ _ = Nothing
 
@@ -374,9 +373,9 @@ additionalProperties' :: ValidatorGen
 additionalProperties' _ _ _ (Bool val) =
   Just (\x ->
     case x of
-      (Object y) -> if val || H.size y == 0
-        then mempty
-        else V.singleton "TODO"
+      (Object y) -> if not val && H.size y > 0
+        then V.singleton ("Val error against additionalProperties false for: " <> tshow x)
+        else mempty
       _ -> mempty)
 additionalProperties' spec g s (Object val) =
   let sub = compile spec g (RawSchema (_rsURI s) val)
@@ -444,7 +443,9 @@ dependencies spec g s (Object val) = do
         Nothing -> mempty
         Just _  ->
           case traverse ($ d) (H.lookup <$> ts) of
-            Nothing -> V.singleton "TODO at least one failed"
+            Nothing -> V.singleton
+              ("Val error against property dependency with the key "
+               <> t <> " and the value " <> tshow ts <> " for: " <> tshow d)
             Just _  -> mempty
 
 dependencies _ _ _ _ = Nothing
@@ -484,7 +485,7 @@ anyOf spec g s (Array vs) = do
   Just (\x ->
     if V.elem V.empty (validate <$> ss <*> pure x)
       then mempty
-      else V.singleton "TODO")
+      else V.singleton ("Val error against anyOf " <> tshow vs <> " for: " <> tshow x))
 anyOf _ _ _ _ = Nothing
 
 oneOf :: ValidatorGen
@@ -494,7 +495,7 @@ oneOf spec g s (Array vs) = do
   Just (\x ->
     if count V.empty (validate <$> ss <*> pure x) == 1
       then mempty
-      else V.singleton "TODO")
+      else V.singleton ("Val error against oneOf " <> tshow vs <> " for: " <> tshow x))
 oneOf _ _ _ _ = Nothing
 
 notValidator :: ValidatorGen
@@ -502,7 +503,7 @@ notValidator spec g s (Object val) = do
   let sub = compile spec g (RawSchema (_rsURI s) val)
   Just (\x ->
     if V.null $ validate sub x
-      then V.singleton "TODO"
+      then V.singleton ("Val error against not validator " <> tshow val <> " for: " <> tshow x)
       else mempty)
 notValidator _ _ _ _ = Nothing
 
@@ -526,4 +527,4 @@ ref spec g s (String val) = do
 ref _ _ _ _ = Nothing
 
 noVal :: ValidatorGen
-noVal = (\_ _ _ _ -> Just (const V.empty))
+noVal _ _ _ _ = Just (const V.empty)

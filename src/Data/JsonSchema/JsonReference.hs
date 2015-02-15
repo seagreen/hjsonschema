@@ -51,11 +51,13 @@ fetchRef :: Text -> IO (Either Text (HashMap Text Value))
 fetchRef t = do
   eResp <- safeGet t
   case eResp of
-    Left _  -> return (Left "TODO")
-    Right b ->
-      case decode b of
-        Just (Object z) -> return (Right z)
-        _               -> return (Left "TODO")
+    Left err -> return (Left err)
+    Right b  ->
+      case eitherDecode b of
+        Right (Object z) -> return (Right z)
+        Right v          -> return . Left $
+          "fetchRef returned the following instead of an object" <> T.pack (show v)
+        Left e           -> return . Left . T.pack $ e
 
 safeGet :: Text -> IO (Either Text ByteString)
 safeGet url =

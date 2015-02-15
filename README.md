@@ -4,9 +4,9 @@ An implementation of [JSON Schema](http://json-schema.org/) v4 in haskell.
 
 # Status
 
-Still in development. Lacks documentation, example code, and real error messages.
+Still in development. Its handling of the `id` keyword passes tests, but is probably incorrect.
 
-Also while the official tests pass, its handling of the `id` keyword is incomplete.
+Also lacks documentation and example code.
 
 # Install Tests
 
