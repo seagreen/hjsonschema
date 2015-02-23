@@ -39,16 +39,19 @@ import           Data.Fixed                    (mod')
 import           Data.Hashable
 import           Data.HashMap.Strict           (HashMap)
 import qualified Data.HashMap.Strict           as H
+import           Data.JsonPointer
 import           Data.JsonSchema.Core
-import           Data.JsonSchema.JsonReference
+import           Data.JsonSchema.Reference
 import           Data.JsonSchema.Utils
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Text                     (Text)
 import qualified Data.Text                     as T
+import           Data.Text.Encoding
 import           Data.Traversable
 import           Data.Vector                   (Vector)
 import qualified Data.Vector                   as V
+import           Network.HTTP.Types.URI
 import           Text.RegexPR
 
 --------------------------------------------------
@@ -513,17 +516,13 @@ notValidator _ _ _ _ = Nothing
 -- ignored.
 ref :: ValidatorGen
 ref spec g s (String val) = do
-  (reference, pointer) <- refAndP (_rsURI s `combineIdAndRef` val)
+  (reference, pointer) <- refAndPointer (_rsURI s `combineIdAndRef` val)
   r <- RawSchema reference <$> H.lookup reference g
-  sc <- pointerToSchema pointer r
-  Just $ validate (compile spec g sc)
-  where
-    pointerToSchema :: Text -> RawSchema -> Maybe RawSchema
-    pointerToSchema pntr rawS = do
-      mVal <- jsonPointer pntr (Object . _rsObject $ rawS)
-      case mVal of
-        (Object o) -> Just $ RawSchema (_rsURI rawS) o
-        _           -> Nothing
+  let p = decodeUtf8 . urlDecode True . encodeUtf8 $ pointer
+  case jsonPointer p >>= resolvePointer (Object $ _rsObject r) of
+    Right (Object o) ->
+      Just $ validate $ compile spec g $ RawSchema (_rsURI r) o
+    _                -> Nothing
 ref _ _ _ _ = Nothing
 
 noVal :: ValidatorGen

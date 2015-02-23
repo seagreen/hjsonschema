@@ -14,11 +14,17 @@ import           Data.JsonSchema
 import           Data.Monoid
 import           Data.Text                      (Text)
 import qualified Data.Text                      as T
+import           Data.Vector                    (Vector)
 import qualified Data.Vector                    as V
 import           System.FilePath                ((</>))
-import           Test.Framework
-import           Test.Framework.Providers.HUnit
-import qualified Test.HUnit                     as HU
+import           Test.Framework                 (Test)
+import           Test.Framework.Providers.HUnit (testCase)
+import           Test.HUnit                     hiding (Test)
+
+isLocal :: String -> Bool
+isLocal file = (file /= "definitions.json")
+            && (file /= "ref.json")
+            && (file /= "refRemote.json")
 
 data SchemaTest = SchemaTest
   { _stDescription :: Text
@@ -34,18 +40,13 @@ data SchemaTestCase = SchemaTestCase
 
 instance FromJSON RawSchema where
   parseJSON = withObject "Schema" $ \o ->
-    return $ RawSchema "" o
+    return RawSchema { _rsURI = "", _rsObject = o }
 
 instance FromJSON SchemaTest where
   parseJSON = withObject "SchemaTest" $ \o -> SchemaTest
     <$> o .: "description"
     <*> o .: "schema"
     <*> o .: "tests" -- I wish this were "cases"
-
-isLocal :: String -> Bool
-isLocal file = (file /= "definitions.json")
-            && (file /= "ref.json")
-            && (file /= "refRemote.json")
 
 readSchemaTests :: String -> [String] -> IO [SchemaTest]
 readSchemaTests dir jsonFiles = concatMapM fileToCases jsonFiles
@@ -68,33 +69,37 @@ readSchemaTests dir jsonFiles = concatMapM fileToCases jsonFiles
     concatMapM f xs = liftM concat (mapM f xs)
 
 toTest :: SchemaTest -> Test
-toTest st = testGroup groupName (mkCase <$> _stCases st)
-  where
-    groupName :: String
-    groupName = T.unpack $ _stDescription st
+toTest st =
+  testCase (T.unpack $ _stDescription st) $ do
+    assertEqual "schema validity errors" V.empty (isValidSchema . _stSchema $ st)
+    forM_ (_stCases st) $ \sc -> do
+      g <- assertRight =<< fetchRefs draft4 (_stSchema st) H.empty
+      let es = validate (compile draft4 g $ _stSchema st) (_scData sc)
+      if _scValid sc
+        then assertValid   sc es
+        else assertInvalid sc es
 
-    mkCase :: SchemaTestCase -> Test
-    mkCase sc = testCase caseName assertion
-      where
-        caseName = T.unpack $ _scDescription sc
-        assertion = if _scValid sc
-          then assertValid   (_stSchema st) (_scData sc)
-          else assertInvalid (_stSchema st) (_scData sc)
+assertValid :: SchemaTestCase -> Vector ValErr -> Assertion
+assertValid sc es =
+  unless (V.length es == 0) $ assertFailure $ unlines
+    [ "    Failed to validate data"
+    , "    Description: " <> T.unpack (_scDescription sc)
+    , "    Data: "        <> show (_scData sc)
+    , "    Errors: "      <> show es
+    ]
 
-assertValid, assertInvalid :: RawSchema -> Value -> HU.Assertion
-assertValid r v = do
-  g <- assertRight =<< fetchRefs draft4 r H.empty
-  let es = validate (compile draft4 g r) v
-  unless (V.length es == 0) $ HU.assertFailure (show es)
-assertInvalid r v = do
-  g <- assertRight =<< fetchRefs draft4 r H.empty
-  let es = validate (compile draft4 g r) v
-  when (V.length es == 0) $ HU.assertFailure "expected a validation error"
+assertInvalid :: SchemaTestCase -> Vector ValErr -> Assertion
+assertInvalid sc es =
+  unless (V.length es > 0) $ assertFailure $ unlines
+    [ "    Failed to invalidate data"
+    , "    Description: " <> T.unpack (_scDescription sc)
+    , "    Data: "        <> show (_scData sc)
+    ]
 
 assertRight :: (Show a) => Either a b -> IO b
 assertRight a =
   case a of
-    Left e  -> HU.assertFailure (show e) >> fail "assertRight failed"
+    Left e  -> assertFailure (show e) >> fail "assertRight failed"
     Right b -> return b
 
 $(deriveFromJSON defaultOptions { fieldLabelModifier = map toLower . drop 3 } ''SchemaTestCase)

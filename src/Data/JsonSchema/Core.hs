@@ -3,7 +3,7 @@ module Data.JsonSchema.Core where
 import           Data.Aeson
 import           Data.HashMap.Strict           (HashMap)
 import qualified Data.HashMap.Strict           as H
-import           Data.JsonSchema.JsonReference
+import           Data.JsonSchema.Reference
 import           Data.Maybe
 import           Data.Text                     (Text)
 import           Data.Vector                   (Vector)
@@ -34,7 +34,7 @@ compile spec g (RawSchema t o) =
   V.fromList . catMaybes . H.elems $ H.intersectionWith f (_unSpec spec) o
   where
     f :: (ValidatorGen, a) -> Value -> Maybe Validator
-    f (vGen,_) = vGen spec g $ RawSchema (updateId t o) o
+    f (vGen,_) = vGen spec g $ RawSchema (newResolutionScope t o) o
 
 validate :: Schema -> Value -> Vector ValErr
 validate s x = s >>= ($ x)

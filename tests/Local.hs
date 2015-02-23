@@ -8,9 +8,9 @@ import           Test.Framework
 
 main :: IO ()
 main = do
-  files <- filter isLocal . filter (".json" `isSuffixOf`)
-             <$> getDirectoryContents dir
-  ts <- readSchemaTests dir files
+  filenames <- filter isLocal . filter (".json" `isSuffixOf`)
+                 <$> getDirectoryContents dir
+  ts <- readSchemaTests dir filenames
   defaultMain (toTest <$> ts)
 
   where

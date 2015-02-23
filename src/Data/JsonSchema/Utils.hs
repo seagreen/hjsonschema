@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedLists #-}
-
 module Data.JsonSchema.Utils where
 
 import           Data.Aeson
