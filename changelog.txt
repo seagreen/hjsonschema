@@ -1,0 +1,6 @@
+# 0.5
+
++ Start changelog.
++ Rename Utils.hs to Helpers.hs.
++ Move all non-ValidatorGen functions in Validators.hs to Helpers.hs.
++ Various touchups.

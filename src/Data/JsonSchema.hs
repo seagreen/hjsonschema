@@ -12,8 +12,8 @@ import           Data.FileEmbed
 import           Data.Foldable
 import qualified Data.HashMap.Strict        as H
 import           Data.JsonSchema.Core
+import           Data.JsonSchema.Helpers
 import           Data.JsonSchema.Reference
-import           Data.JsonSchema.Utils
 import           Data.JsonSchema.Validators
 import           Data.Maybe
 import           Data.Text                  (Text)
