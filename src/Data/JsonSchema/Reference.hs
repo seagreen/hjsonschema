@@ -1,7 +1,7 @@
 module Data.JsonSchema.Reference where
 
+import           Control.Arrow
 import           Control.Exception
-import           Control.Lens
 import           Control.Monad
 import           Data.Aeson
 import           Data.ByteString.Lazy (ByteString)
@@ -10,7 +10,7 @@ import qualified Data.HashMap.Strict  as H
 import           Data.Monoid
 import           Data.Text            (Text)
 import qualified Data.Text            as T
-import           Network.Wreq
+import           Network.HTTP.Conduit
 import           Prelude              hiding (foldr)
 
 combineIdAndRef :: Text -> Text -> Text
@@ -47,18 +47,13 @@ fetchRef :: Text -> IO (Either Text (HashMap Text Value))
 fetchRef t = do
   eResp <- safeGet t
   case eResp of
-    Left err -> return (Left err)
-    Right b  ->
-      case eitherDecode b of
-        Right (Object z) -> return (Right z)
-        Right v          -> return . Left $
-          "fetchRef returned the following instead of an object" <> T.pack (show v)
-        Left e           -> return . Left . T.pack $ e
+    Left e  -> return $ Left e
+    Right b -> return . left T.pack $ eitherDecode b
 
 safeGet :: Text -> IO (Either Text ByteString)
 safeGet url =
   catch
-    (return . Right . (^. responseBody) =<< get (T.unpack url))
+    (return . Right =<< (simpleHttp . T.unpack) url)
     handler
   where
     handler :: SomeException -> IO (Either Text ByteString)

@@ -29,4 +29,4 @@ Note that the tests require an internet connection.
 
 Thanks to [Julian Berman](https://github.com/Julian) for the fantastic test suite.
 
-Also thanks to Tim Baumann for his [aeson-schema](https://hackage.haskell.org/package/aeson-schema) library. Hjsonschema's test code and its implementation of Graph both come from Aeson-Schema.
+Also thanks to Tim Baumann for his [aeson-schema](https://hackage.haskell.org/package/aeson-schema) library. Hjsonschema's test code and its implementation of `Graph` both come from Aeson-Schema.
