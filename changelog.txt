@@ -1,3 +1,7 @@
+# 0.5.1
+
++ Switch from wreq to http-conduit; drop lens dependency.
+
 # 0.5
 
 + Start changelog.
