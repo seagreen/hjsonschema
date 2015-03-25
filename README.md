@@ -4,7 +4,45 @@ An implementation of [JSON Schema](http://json-schema.org/) Draft 4 in haskell.
 
 # Status
 
-Still in development. Lacks documentation and solid code to fetch remote schemas.
+Still in development. Lacks solid code to fetch remote schemas.
+
+# Example
+
+```
+{-# LANGUAGE OverloadedStrings #-}
+
+module Main where
+
+import Data.Aeson
+import qualified Data.HashMap.Strict as H
+import qualified Data.JsonSchema as JS
+import qualified Data.Vector as V
+
+main :: IO ()
+main =
+  case V.length (JS.isValidSchema rawSchema) of
+    0 -> do
+      eitherGraph <- JS.fetchRefs JS.draft4 rawSchema H.empty
+      case eitherGraph of
+        Left e  -> print e
+        Right g -> print $ JS.validate (JS.compile JS.draft4 g $ rawSchema) invalidData
+    _ -> putStrLn "The schema you tried to use doesn't follow the draft 4 layout."
+
+rawSchema :: JS.RawSchema
+rawSchema = JS.RawSchema
+  { JS._rsURI = ""
+  , JS._rsObject = H.singleton "uniqueItems" (Bool True) -- Schema JSON goes here.
+  }
+
+invalidData :: Value
+invalidData = Array (V.fromList ["foo", "foo"])
+```
+
+Output:
+```
+fromList ["Val error against uniqueItems True for: Array (fromList [String \"foo\",String \"foo\"])"]
+```
+
 
 # Install Tests
 

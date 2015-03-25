@@ -1,9 +1,3 @@
--- | Embedded schema layouts and functions for use in Validators.hs.
---
--- 'Data.JsonSchema.fetchRefs' uses embedded schema layouts to
--- correctly find subschemas so it can check for "$ref" and "id"
--- keywords.
-
 module Data.JsonSchema.Helpers where
 
 import           Control.Applicative
@@ -24,32 +18,32 @@ import qualified Data.Vector          as V
 import           Text.RegexPR
 
 --------------------------------------------------
--- Embedded Schema Layouts
+-- * Embedded Schema Layouts
 --------------------------------------------------
 
-noEm :: Text -> Value -> Vector RawSchema
+noEm :: EmbeddedSchemas
 noEm _ _ = V.empty
 
-objEmbed :: Text -> Value -> Vector RawSchema
+objEmbed :: EmbeddedSchemas
 objEmbed t (Object o) = V.singleton $ RawSchema t o
 objEmbed _ _ = V.empty
 
 -- TODO: optimize
-arrayEmbed :: Text -> Value -> Vector RawSchema
+arrayEmbed :: EmbeddedSchemas
 arrayEmbed t (Array vs) = V.concat . V.toList $ objEmbed t <$> vs
 arrayEmbed _ _ = V.empty
 
-objOrArrayEmbed :: Text -> Value -> Vector RawSchema
+objOrArrayEmbed :: EmbeddedSchemas
 objOrArrayEmbed t v@(Object _) = objEmbed t v
 objOrArrayEmbed t v@(Array _) = arrayEmbed t v
 objOrArrayEmbed _ _ = V.empty
 
-objMembersEmbed :: Text -> Value -> Vector RawSchema
+objMembersEmbed :: EmbeddedSchemas
 objMembersEmbed t (Object o) = V.concat $ objEmbed t <$> H.elems o
 objMembersEmbed _ _ = V.empty
 
 --------------------------------------------------
--- Validator Helpers
+-- * Validator Helpers
 --------------------------------------------------
 
 propertiesMatches
@@ -127,7 +121,7 @@ isJsonType x xs =
     mkErr y ts = V.singleton $ tshow y <> " is not one of the types " <> tshow ts
 
 --------------------------------------------------
--- Utils
+-- * Utils
 --------------------------------------------------
 
 vectorOfElems :: HashMap k a -> Vector a

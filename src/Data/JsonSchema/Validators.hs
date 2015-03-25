@@ -1,7 +1,6 @@
--- | This is generally meant to be an internal module.
--- It's only exposed in case you want to make your own
--- 'Data.JsonSchema.Core.Spec'. If you just want to use
--- JSON Schema Draft 4 use the preassembled
+-- | This is generally meant to be an internal module. It's only
+-- exposed in case you want to make your own 'Spec'. If you just
+-- want to use JSON Schema Draft 4 use the preassembled
 -- 'Data.JsonSchema.draft4' instead.
 
 module Data.JsonSchema.Validators where
@@ -29,7 +28,7 @@ import           Network.HTTP.Types.URI
 import           Text.RegexPR
 
 --------------------------------------------------
--- Number Validators
+-- * Number Validators
 --------------------------------------------------
 
 multipleOf :: ValidatorGen
@@ -73,7 +72,7 @@ minimumVal _ _ s (Number val) =
 minimumVal _ _ _ _ = Nothing
 
 --------------------------------------------------
--- String Validators
+-- * String Validators
 --------------------------------------------------
 
 maxLength :: ValidatorGen
@@ -112,7 +111,7 @@ pattern _ _ _ (String val) =
 pattern _ _ _ _ = Nothing
 
 --------------------------------------------------
--- Array Validators
+-- * Array Validators
 --------------------------------------------------
 
 -- | Also covers additionalItems.
@@ -193,7 +192,7 @@ uniqueItems _ _ _ (Bool val) = do
 uniqueItems _ _ _ _ = Nothing
 
 --------------------------------------------------
--- Object Validators
+-- * Object Validators
 --------------------------------------------------
 
 maxProperties :: ValidatorGen
@@ -363,7 +362,7 @@ dependencies spec g s (Object val) = do
 dependencies _ _ _ _ = Nothing
 
 --------------------------------------------------
--- Any Validators
+-- * Any Validators
 --------------------------------------------------
 
 enum :: ValidatorGen

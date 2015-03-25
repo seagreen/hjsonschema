@@ -71,7 +71,7 @@ readSchemaTests dir jsonFiles = concatMapM fileToCases jsonFiles
 toTest :: SchemaTest -> Test
 toTest st =
   testCase (T.unpack $ _stDescription st) $ do
-    assertEqual "schema validity errors" V.empty (isValidSchema . _stSchema $ st)
+    assertEqual "schema validity errors" V.empty $ isValidSchema (_stSchema st)
     forM_ (_stCases st) $ \sc -> do
       g <- assertRight =<< fetchRefs draft4 (_stSchema st) H.empty
       let es = validate (compile draft4 g $ _stSchema st) (_scData sc)

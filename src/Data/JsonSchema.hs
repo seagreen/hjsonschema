@@ -1,8 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Data.JsonSchema
-  ( module Data.JsonSchema
-  , module Data.JsonSchema.Core
+  ( module Data.JsonSchema.Core
+  , module Data.JsonSchema
   ) where
 
 import           Control.Applicative
@@ -21,6 +21,10 @@ import qualified Data.Text                  as T
 import           Data.Vector                (Vector)
 import qualified Data.Vector                as V
 import           Prelude                    hiding (foldr)
+
+--------------------------------------------------
+-- * Draft 4 Specific
+--------------------------------------------------
 
 draft4 :: Spec
 draft4 = Spec $ H.fromList
@@ -52,18 +56,43 @@ draft4 = Spec $ H.fromList
   , ("definitions"         , (noVal               , objMembersEmbed))
   ]
 
+-- | Check if a 'RawSchema' is valid Draft 4 schema.
+--
+-- This is just a convenience function built by preloading 'validate'
+-- with the spec schema that describes valid Draft 4 schemas.
+isValidSchema :: RawSchema -> Vector ValErr
+isValidSchema r =
+  case decode . fromStrict $ $(embedFile "draft4.json") of
+    Nothing -> V.singleton "Schema decode failed (this should never happen)"
+    Just s  -> do
+      let draft4Schema = RawSchema { _rsURI = "", _rsObject = s }
+      validate
+        (compile draft4 H.empty draft4Schema)
+        (Object . _rsObject $ r)
+
+--------------------------------------------------
+-- * Graph Builder
+--------------------------------------------------
+-- $ TODO: It would be nice to have a few other functions for building
+-- out 'Graph's depending on the situation. For instance, there could be
+-- a function that only fetched "$ref"s which use the "file://" scheme.
+
+-- | Take a schema. Retrieve every document either it or its
+-- subschemas include via the "$ref" keyword. Load a 'Graph' out
+-- with them.
+--
+-- TODO: This function's URL processing is hacky and needs improvement.
 fetchRefs :: Spec -> RawSchema -> Graph -> IO (Either Text Graph)
 fetchRefs spec a graph =
   let startingGraph = H.insert (_rsURI a) (_rsObject a) graph
   in foldlM fetch (Right startingGraph) (includeSubschemas a)
 
   where
-    -- TODO: optimize
     includeSubschemas :: RawSchema -> Vector RawSchema
     includeSubschemas r =
       let newId = newResolutionScope (_rsURI r) (_rsObject r)
           xs = H.intersectionWith (\(_,f) x -> f newId x) (_unSpec spec) (_rsObject r)
-          ys = V.concat . H.elems $ xs
+          ys = V.concat . H.elems $ xs -- TODO: optimize
       in V.cons r . V.concat . V.toList $ includeSubschemas <$> ys
 
     fetch :: Either Text Graph -> RawSchema -> IO (Either Text Graph)
@@ -80,16 +109,3 @@ fetchRefs spec a graph =
                 Left e    -> return (Left e)
                 Right obj -> fetchRefs spec (RawSchema t obj) g
     fetch leftGraph _ = return leftGraph
-
--- | Check if a schema is valid or not. Just a helper function
--- built out of the JSON Schema document which describes valid
--- draft 4 schemas and the normal 'compile' and 'validate' functions.
-isValidSchema :: RawSchema -> Vector ValErr
-isValidSchema r =
-  case decode . fromStrict $ $(embedFile "draft4.json") of
-    Nothing -> V.singleton "Schema decode failed (this should never happen)"
-    Just s  -> do
-      let draft4Schema = RawSchema { _rsURI = "", _rsObject = s }
-      validate
-        (compile draft4 H.empty draft4Schema)
-        (Object . _rsObject $ r)

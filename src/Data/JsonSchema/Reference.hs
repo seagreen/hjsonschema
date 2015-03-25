@@ -1,3 +1,6 @@
+-- | TODO: The code handling resolution scope updates
+-- is hacky and needs improvement.
+
 module Data.JsonSchema.Reference where
 
 import           Control.Arrow
