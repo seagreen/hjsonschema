@@ -60,6 +60,10 @@ draft4 = Spec $ H.fromList
 --
 -- This is just a convenience function built by preloading 'validate'
 -- with the spec schema that describes valid Draft 4 schemas.
+--
+-- NOTE: It's not actually required to run 'isValidSchema' on
+-- prospective draft 4 schemas at all. However, it's a good way to
+-- catch unintentional mistakes in schema documents.
 isValidSchema :: RawSchema -> Vector ValErr
 isValidSchema r =
   case decode . fromStrict $ $(embedFile "draft4.json") of
@@ -69,6 +73,18 @@ isValidSchema r =
       validate
         (compile draft4 H.empty draft4Schema)
         (Object . _rsObject $ r)
+
+-- | Check that a 'RawSchema' conforms to the JSON Schema Draft 4
+-- master schema document. Compile it if it does.
+--
+-- This is just a convenience function built by combining
+-- 'isValidSchema' and 'compile'.
+compileDraft4 :: Graph -> RawSchema -> Either (Vector ValErr) Schema
+compileDraft4 g r =
+  let es = isValidSchema r
+  in case V.length es of
+    0 -> Right $ compile draft4 g r
+    _ -> Left es
 
 --------------------------------------------------
 -- * Graph Builder

@@ -19,14 +19,14 @@ import qualified Data.JsonSchema as JS
 import qualified Data.Vector as V
 
 main :: IO ()
-main =
-  case V.length (JS.isValidSchema rawSchema) of
-    0 -> do
-      eitherGraph <- JS.fetchRefs JS.draft4 rawSchema H.empty
-      case eitherGraph of
-        Left e  -> print e
-        Right g -> print $ JS.validate (JS.compile JS.draft4 g $ rawSchema) invalidData
-    _ -> putStrLn "The schema you tried to use doesn't follow the draft 4 layout."
+main = do
+  eitherGraph <- JS.fetchRefs JS.draft4 rawSchema H.empty
+  case eitherGraph of
+    Left e  -> print e
+    Right g ->
+      case JS.compileDraft4 g rawSchema of
+        Left e2 -> print e2
+        Right a -> print $ JS.validate a invalidData
 
 rawSchema :: JS.RawSchema
 rawSchema = JS.RawSchema
