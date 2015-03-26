@@ -426,8 +426,9 @@ ref :: ValidatorGen
 ref spec g s (String val) = do
   (reference, pointer) <- refAndPointer (_rsURI s `combineIdAndRef` val)
   r <- RawSchema reference <$> H.lookup reference g
-  let p = decodeUtf8 . urlDecode True . encodeUtf8 $ pointer
-  case jsonPointer p >>= resolvePointer (Object $ _rsObject r) of
+  let urlDecoded = decodeUtf8 . urlDecode True . encodeUtf8 $ pointer
+  p <- eitherToMaybe $ jsonPointer urlDecoded
+  case resolvePointer p (Object $ _rsObject r) of
     Right (Object o) ->
       Just $ validate $ compile spec g $ RawSchema (_rsURI r) o
     _                -> Nothing
