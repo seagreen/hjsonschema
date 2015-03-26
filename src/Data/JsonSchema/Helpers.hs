@@ -124,6 +124,10 @@ isJsonType x xs =
 -- * Utils
 --------------------------------------------------
 
+eitherToMaybe :: Either a b -> Maybe b
+eitherToMaybe (Left _)  = Nothing
+eitherToMaybe (Right a) = Just a
+
 vectorOfElems :: HashMap k a -> Vector a
 vectorOfElems = V.fromList . H.elems
 
