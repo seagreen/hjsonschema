@@ -22,11 +22,11 @@ main :: IO ()
 main = do
   eitherGraph <- JS.fetchRefs JS.draft4 rawSchema H.empty
   case eitherGraph of
-    Left e  -> print e
-    Right g ->
-      case JS.compileDraft4 g rawSchema of
-        Left e2 -> print e2
-        Right a -> print $ JS.validate a invalidData
+    Left e      -> print e
+    Right graph ->
+      case JS.compileDraft4 graph rawSchema of
+        Left e2      -> print e2
+        Right schema -> print $ JS.validate schema invalidData
 
 rawSchema :: JS.RawSchema
 rawSchema = JS.RawSchema
@@ -48,14 +48,13 @@ fromList ["Val error against uniqueItems True for: Array (fromList [String \"foo
 
     git submodule update --init
 
-# Run Tests
+# Prepare Tests
 
-    cd JSON-Schema-Test-Suite/remotes
-    hserv --port=1234 (or python -m SimpleHTTPServer 1234)
++ `cd JSON-Schema-Test-Suite/remotes
 
-Then run the normal `cabal test` from another terminal.
++ `hserv --port=1234` / `python -m SimpleHTTPServer 1234`
 
-Note that the tests require an internet connection.
+Note that the `remote` test suite requires an internet connection.
 
 # Notes
 
