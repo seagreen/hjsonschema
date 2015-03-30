@@ -13,7 +13,7 @@ import qualified Data.HashMap.Strict  as H
 import           Data.Monoid
 import           Data.Text            (Text)
 import qualified Data.Text            as T
-import           Network.HTTP.Conduit
+import           Network.HTTP.Client
 import           Prelude              hiding (foldr)
 
 combineIdAndRef :: Text -> Text -> Text
@@ -61,3 +61,5 @@ safeGet url =
   where
     handler :: SomeException -> IO (Either Text ByteString)
     handler e = return . Left . T.pack . show $ e
+    simpleHttp u = withManager defaultManagerSettings $ \man ->
+      parseUrl u >>= \req -> liftM responseBody $ httpLbs req {requestHeaders = ("Connection", "close") : requestHeaders req } man
