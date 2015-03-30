@@ -51,7 +51,7 @@ fromList ["Val error against uniqueItems True for: Array (fromList [String \"foo
 # Run Tests
 
     cd JSON-Schema-Test-Suite/remotes
-    python -m SimpleHTTPServer 1234
+    hserv --port=1234 (or python -m SimpleHTTPServer 1234)
 
 Then run the normal `cabal test` from another terminal.
 
