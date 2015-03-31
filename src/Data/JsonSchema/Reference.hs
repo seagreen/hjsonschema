@@ -3,6 +3,7 @@
 
 module Data.JsonSchema.Reference where
 
+import           Control.Applicative
 import           Control.Arrow
 import           Control.Exception
 import           Control.Monad
@@ -54,12 +55,14 @@ fetchRef t = do
     Right b -> return . left T.pack $ eitherDecode b
 
 safeGet :: Text -> IO (Either Text ByteString)
-safeGet url =
-  catch
-    (return . Right =<< (simpleHttp . T.unpack) url)
-    handler
+safeGet url = catch (Right <$> simpleHttp') handler
   where
     handler :: SomeException -> IO (Either Text ByteString)
     handler e = return . Left . T.pack . show $ e
-    simpleHttp u = withManager defaultManagerSettings $ \man ->
-      parseUrl u >>= \req -> liftM responseBody $ httpLbs req {requestHeaders = ("Connection", "close") : requestHeaders req } man
+
+    -- We don't want to depend on http-conduit, but Network.Http.Conduit.simpleHttp
+    -- is the model for this function. simpleHttp also sets "Connection: close".
+    simpleHttp' :: IO ByteString
+    simpleHttp' = fmap responseBody $ withManager defaultManagerSettings $ \man -> do
+      req <- parseUrl (T.unpack url)
+      httpLbs req { requestHeaders = ("Connection", "close") : requestHeaders req } man
