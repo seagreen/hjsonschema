@@ -4,7 +4,7 @@ An implementation of [JSON Schema](http://json-schema.org/) Draft 4 in haskell.
 
 # Status
 
-Still in development. Lacks solid code to fetch remote schemas.
+Still in development. Lacks solid code to handle changing resolution scope.
 
 # Example
 
@@ -50,7 +50,7 @@ fromList ["Val error against uniqueItems True for: Array (fromList [String \"foo
 
 # Prepare Tests
 
-+ `cd JSON-Schema-Test-Suite/remotes
++ `cd JSON-Schema-Test-Suite/remotes`
 
 + `hserv --port=1234` / `python -m SimpleHTTPServer 1234`
 
