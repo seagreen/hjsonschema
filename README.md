@@ -8,7 +8,7 @@ Still in development. Lacks solid code to fetch remote schemas.
 
 # Example
 
-```
+```haskell
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main where
