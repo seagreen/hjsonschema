@@ -58,7 +58,7 @@ Note that the `remote` test suite requires an internet connection.
 
 # Notes
 
-+ This uses the [regexpr](https://hackage.haskell.org/package/regexpr-0.5.4) regular expression library fo the "pattern" validator. I have no idea if this is compatible with the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
++ This uses the [regexpr](https://hackage.haskell.org/package/regexpr-0.5.4) regular expression library for the "pattern" validator. I have no idea if this is compatible with the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
 
 + `draft4.json` is from commit # cc8ec81ce0abe2385ebd6c2a6f2d6deb646f874a [here](https://github.com/json-schema/json-schema).
 
