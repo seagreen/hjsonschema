@@ -1,17 +1,22 @@
 module Main where
 
 import           Control.Applicative
-import           Data.List           (isSuffixOf)
+import           Control.Concurrent.Async       (withAsync)
+import           Data.List                      (isSuffixOf)
 import           Lib
-import           System.Directory    (getDirectoryContents)
+import           Network.Wai.Application.Static (defaultFileServerSettings,
+                                                 staticApp)
+import           Network.Wai.Handler.Warp       (run)
+import           System.Directory               (getDirectoryContents)
 import           Test.Framework
 
 main :: IO ()
-main = do
-  filenames <- filter (not . isLocal) . filter (".json" `isSuffixOf`)
+main =
+  withAsync (run 1234 $ staticApp $ defaultFileServerSettings "JSON-Schema-Test-Suite/remotes") $ \_ -> do
+    filenames <- filter (not . isLocal) . filter (".json" `isSuffixOf`)
                  <$> getDirectoryContents dir
-  ts <- readSchemaTests dir filenames
-  defaultMain (toTest <$> ts)
+    ts <- readSchemaTests dir filenames
+    defaultMain (toTest <$> ts)
 
   where
     dir :: String

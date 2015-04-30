@@ -1,0 +1,24 @@
+language: haskell
+
+ghc:
+  - 7.6
+  - 7.8
+
+before_install:
+  - cabal install alex happy
+
+script:
+  - cabal configure --enable-tests
+  - cabal test
+  - cabal check
+  - cabal sdist
+
+  # check that the generated source-distribution can be built & installed
+  - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
+    cd dist/;
+    if [ -f "$SRC_TGZ" ]; then
+      cabal install "$SRC_TGZ";
+    else
+       echo "expected '$SRC_TGZ' not found";
+       exit 1;
+    fi
