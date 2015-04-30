@@ -1,6 +1,7 @@
 name:                   hjsonschema
 version:                0.5.3.1
 synopsis:               JSON Schema Draft 4 library
+description:            Check your Aeson structures against json-schema descriptions
 homepage:               https://github.com/seagreen/hjsonschema
 license:                MIT
 license-file:           MIT-LICENSE.txt
