@@ -48,14 +48,6 @@ fromList ["Val error against uniqueItems True for: Array (fromList [String \"foo
 
     git submodule update --init
 
-# Prepare Tests
-
-+ `cd JSON-Schema-Test-Suite/remotes`
-
-+ `hserv --port=1234` / `python -m SimpleHTTPServer 1234`
-
-Note that the `remote` test suite requires an internet connection.
-
 # Notes
 
 + This uses the [regexpr](https://hackage.haskell.org/package/regexpr-0.5.4) regular expression library for the "pattern" validator. I have no idea if this is compatible with the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
