@@ -7,10 +7,6 @@ ghc:
 before_install:
   - cabal install alex happy
 
-notifications:
-  email:
-    - mdorman@jaunder.io
-
 script:
   - cabal configure --enable-tests
   - cabal test
