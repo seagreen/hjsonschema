@@ -26,8 +26,8 @@ library
   default-extensions:   OverloadedStrings
   other-extensions:     TemplateHaskell
   ghc-options:          -Wall
-  build-depends:        aeson                >= 0.8   && < 0.9
-                      , base                 >= 4.7   && < 4.9
+  build-depends:        aeson                >= 0.7   && < 0.9
+                      , base                 >= 4.6   && < 4.9
                       , bytestring           >= 0.10  && < 0.11
                       , file-embed           >= 0.0.8 && < 0.0.9
                       , hashable             >= 1.2   && < 1.3
