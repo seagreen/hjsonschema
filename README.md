@@ -40,7 +40,7 @@ invalidData = Array (V.fromList ["foo", "foo"])
 
 Output:
 ```
-fromList ["Val error against uniqueItems True for: Array (fromList [String \"foo\",String \"foo\"])"]
+Left (fromList ["Val error against uniqueItems True for: Array (fromList [String \"foo\",String \"foo\"])"])
 ```
 
 
