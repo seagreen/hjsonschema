@@ -8,6 +8,7 @@ module Data.JsonSchema.Validators where
 import           Control.Applicative
 import           Control.Monad
 import           Data.Aeson
+import           Data.Either
 import           Data.Fixed                (mod')
 import           Data.Hashable
 import           Data.HashMap.Strict       (HashMap)
@@ -18,6 +19,7 @@ import           Data.JsonSchema.Helpers
 import           Data.JsonSchema.Reference
 import           Data.Maybe
 import           Data.Monoid
+import           Data.Scientific
 import           Data.Text                 (Text)
 import qualified Data.Text                 as T
 import           Data.Text.Encoding
@@ -38,37 +40,43 @@ multipleOf _ _ _ (Number val) = do
     case x of
       Number y ->
         if y `mod'` val /= 0
-          then V.singleton $ tshow y <> " isn't a multiple of " <> tshow val
+          then V.singleton (tshow y <> " isn't a multiple of " <> tshow val)
           else mempty
       _ -> mempty)
 multipleOf _ _ _ _ = Nothing
 
 maximumVal :: ValidatorGen
 maximumVal _ _ s (Number val) =
-  let f = case H.lookup "exclusiveMaximum" (_rsObject s) of
-            Just (Bool a) -> if a then (>=) else (>)
-            _             -> (>)
-  in Just (\x ->
+  Just (\x ->
     case x of
       Number y ->
-        if y `f` val
-          then V.singleton $ tshow y <> " fails to validate against maximum " <> tshow val
+        if y `greater` val
+          then V.singleton (tshow y <> " fails to validate against maximum " <> tshow val)
           else mempty
       _ -> mempty)
+  where
+    greater :: Scientific -> Scientific -> Bool
+    greater =
+      case H.lookup "exclusiveMaximum" (_rsObject s) of
+        Just (Bool a) -> if a then (>=) else (>)
+        _             -> (>)
 maximumVal _ _ _ _ = Nothing
 
 minimumVal :: ValidatorGen
 minimumVal _ _ s (Number val) =
-  let f = case H.lookup "exclusiveMinimum" (_rsObject s) of
-            Just (Bool a) -> if a then (<=) else (<)
-            _             -> (<)
-  in Just (\x ->
+  Just (\x ->
     case x of
       Number y ->
-        if y `f` val
-          then V.singleton $ tshow y <> " fails to validate against minimum " <> tshow val
+        if y `lesser` val
+          then V.singleton (tshow y <> " fails to validate against minimum " <> tshow val)
           else mempty
       _ -> mempty)
+  where
+    lesser :: Scientific -> Scientific -> Bool
+    lesser =
+      case H.lookup "exclusiveMinimum" (_rsObject s) of
+        Just (Bool a) -> if a then (<=) else (<)
+        _             -> (<)
 minimumVal _ _ _ _ = Nothing
 
 --------------------------------------------------
@@ -83,7 +91,7 @@ maxLength _ _ _ v = do
     case x of
       String y ->
         if T.length y > val
-          then V.singleton $ y <> " is greater than maxLength " <> tshow val
+          then V.singleton (y <> " is greater than maxLength " <> tshow val)
           else mempty
       _ -> mempty)
 
@@ -95,7 +103,7 @@ minLength _ _ _ v = do
     case x of
       String y ->
         if T.length y < val
-          then V.singleton $ y <> " is less than minLength " <> tshow val
+          then V.singleton (y <> " is less than minLength " <> tshow val)
           else mempty
       _ -> mempty)
 
@@ -105,7 +113,7 @@ pattern _ _ _ (String val) =
     case x of
       String t ->
         case matchRegexPR (T.unpack val) (T.unpack t) of
-          Nothing -> V.singleton $ t <> " fails to validate against pattern " <> val
+          Nothing -> V.singleton (t <> " fails to validate against pattern " <> val)
           Just _  -> mempty
       _ -> mempty)
 pattern _ _ _ _ = Nothing
@@ -120,7 +128,7 @@ items spec g s (Object val) =
   let sub = compile spec g (RawSchema (_rsURI s) val)
   in Just (\x ->
     case x of
-      Array ys -> ys >>= validate sub
+      Array ys -> ys >>= either id mempty . validate sub
       _        -> mempty)
 items spec g s (Array vs) = do
   os <- traverse toObj vs
@@ -132,7 +140,8 @@ items spec g s (Array vs) = do
     case x of
       (Array ys) ->
         let extras = V.drop (V.length os) ys
-        in join (V.zipWith validate ss ys) <> runMaybeVal addItems (Array extras)
+        in join (either id mempty <$> V.zipWith validate ss ys)
+           <> runMaybeVal addItems (Array extras)
       _ -> mempty)
 items _ _ _ _ = Nothing
 
@@ -152,7 +161,7 @@ additionalItems spec g s (Object val) =
   let sub = compile spec g (RawSchema (_rsURI s) val)
   in Just (\x ->
     case x of
-      Array ys -> ys >>= validate sub
+      Array ys -> ys >>= either id mempty . validate sub
       _        -> mempty)
 additionalItems _ _ _ _ = Nothing
 
@@ -164,7 +173,7 @@ maxItems _ _ _ v = do
     case x of
       Array ys ->
         if V.length ys > val
-          then V.singleton $ tshow ys <> " has more items than maxItems " <> tshow val
+          then V.singleton (tshow ys <> " has more items than maxItems " <> tshow val)
           else mempty
       _ -> mempty)
 
@@ -176,7 +185,7 @@ minItems _ _ _ v = do
     case x of
       Array ys ->
         if V.length ys < val
-          then V.singleton $ tshow ys <> " has fewer items than minItems " <> tshow val
+          then V.singleton (tshow ys <> " has fewer items than minItems " <> tshow val)
           else mempty
       _ -> mempty)
 
@@ -203,7 +212,7 @@ maxProperties _ _ _ v = do
     case x of
       Object o ->
         if H.size o > val
-          then V.singleton $ tshow o <> " has more members than maxProperties " <> tshow val
+          then V.singleton (tshow o <> " has more members than maxProperties " <> tshow val)
           else mempty
       _ -> mempty)
 
@@ -215,7 +224,7 @@ minProperties _ _ _ v = do
     case x of
       Object o ->
         if H.size o < val
-          then V.singleton $ tshow o <> " has fewer members than minProperties " <> tshow val
+          then V.singleton (tshow o <> " has fewer members than minProperties " <> tshow val)
           else mempty
       _ -> mempty)
 
@@ -229,8 +238,8 @@ required _ _ _ (Array vs) = do
     case x of
       Object o ->
         if H.size (H.difference a o) > 0
-          then V.singleton $ "the keys of " <> tshow o <>
-            " don't contain all the required elements " <> tshow vs
+          then V.singleton ("the keys of: " <> tshow o <>
+                            " don't contain all the required elements: " <> tshow vs)
           else mempty
       _ -> mempty)
   where
@@ -244,7 +253,7 @@ required _ _ _ _ = Nothing
 -- In order of what's tried: properties, patternProperties, additionalProperties
 properties :: ValidatorGen
 properties spec g s v = do
-  let mProps = propertiesMatches spec g s v
+  let mProps = propertiesMatches v
   let mPatProp = do
                   aV <- H.lookup "patternProperties" (_rsObject s)
                   patternPropertiesMatches spec g s aV
@@ -260,6 +269,17 @@ properties spec g s v = do
             (e2s, _) = runMaybeVal' mPatProp (Object y)
         in e1s <> e2s <> runMaybeVal mAdd remaining'
       _ -> mempty)
+  where
+    propertiesMatches :: Value -> Maybe (Value -> (Vector ValErr, Value))
+    propertiesMatches (Object val) = do
+      os <- traverse toObj val
+      let oss = compile spec g . RawSchema (_rsURI s) <$> os
+      Just (\x ->
+        case x of
+          Object y -> ( join . vectorOfElems $ either id mempty <$> H.intersectionWith validate oss y
+                      , Object $ H.difference y oss)
+          z        -> (mempty, z))
+    propertiesMatches _ = Nothing
 
 patternProperties :: ValidatorGen
 patternProperties spec g s v = do
@@ -292,7 +312,7 @@ runAdditionalProperties spec g s (Object val) =
   let sub = compile spec g (RawSchema (_rsURI s) val)
   in Just (\x ->
     case x of
-      Object y -> vectorOfElems y >>= validate sub
+      Object y -> vectorOfElems y >>= either id mempty . validate sub
       _        -> mempty)
 runAdditionalProperties _ _ _ _ = Nothing
 
@@ -304,25 +324,24 @@ additionalProperties spec g s v = do
 
 -- http://json-schema.org/latest/json-schema-validation.html#anchor70
 --
---  This keyword's value MUST be an object.
---  Each value of this object MUST be either an object or an array.
---
--- If the value is an object, it MUST be a valid JSON Schema.
--- This is called a schema dependency.
---
--- If the value is an array, it MUST have at least one element.
--- Each element MUST be a string, and elements in the array MUST be unique.
--- This is called a property dependency.
+-- > This keyword's value MUST be an object.
+-- > Each value of this object MUST be either an object or an array.
+-- >
+-- > If the value is an object, it MUST be a valid JSON Schema.
+-- > This is called a schema dependency.
+-- >
+-- > If the value is an array, it MUST have at least one element.
+-- > Each element MUST be a string, and elements in the array MUST be unique.
+-- > This is called a property dependency.
 dependencies :: ValidatorGen
 dependencies spec g s (Object val) = do
   let vs = hmToVector val
-  let schemaDeps = vs >>= toSchemaDep spec g
-  let propDeps = vs >>= toPropDep
+      schemaDeps = vs >>= toSchemaDep spec g
+      propDeps = vs >>= toPropDep
   when (V.length schemaDeps + V.length propDeps /= V.length vs) Nothing
   Just (\x ->
     case x of
-      Object y -> join $ (valSD <$> schemaDeps <*> pure y)
-                         <> (valPD <$> propDeps <*> pure y)
+      Object y -> join $ (valSD <$> schemaDeps <*> pure y) <> (valPD <$> propDeps <*> pure y)
       _        -> mempty)
   where
     toSchemaDep :: Spec -> Graph -> (Text, Value) -> Vector (Text, Schema)
@@ -346,7 +365,7 @@ dependencies spec g s (Object val) = do
     valSD (t, sub) d =
       case H.lookup t d of
         Nothing -> mempty
-        Just _  -> validate sub (Object d)
+        Just _  -> either id (const mempty) $ validate sub (Object d)
 
     valPD :: (Text, Vector Text) -> HashMap Text Value -> Vector ValErr
     valPD (t, ts) d =
@@ -354,9 +373,8 @@ dependencies spec g s (Object val) = do
         Nothing -> mempty
         Just _  ->
           case traverse ($ d) (H.lookup <$> ts) of
-            Nothing -> V.singleton
-              ("Val error against property dependency with the key "
-               <> t <> " and the value " <> tshow ts <> " for: " <> tshow d)
+            Nothing -> V.singleton ("Val error against property dependency with key: " <> t
+                                    <> " and value " <> tshow ts <> " for: " <> tshow d)
             Just _  -> mempty
 
 dependencies _ _ _ _ = Nothing
@@ -365,13 +383,23 @@ dependencies _ _ _ _ = Nothing
 -- * Any Validators
 --------------------------------------------------
 
+-- | http://json-schema.org/latest/json-schema-validation.html#anchor76
+--
+--  > The value of this keyword MUST be an array.
+--  > This array MUST have at least one element.
+--  > Elements in the array MUST be unique.
+--  >
+--  > Elements in the array MAY be of any type, including null.
+--
+-- NOTE: We actually respect this, and don't build the validator
+-- if any of the elements aren't unique.
 enum :: ValidatorGen
 enum _ _ _ (Array vs) = do
-  unless (V.length vs > 0 && allUnique vs) Nothing
+  when (V.null vs || not (allUnique vs)) Nothing
   Just (\x ->
     if V.elem x vs
       then mempty
-      else V.singleton $ tshow x <> " is not an element of enum " <> tshow vs)
+      else V.singleton (tshow x <> " is not an element of enum " <> tshow vs))
 enum _ _ _ _ = Nothing
 
 typeVal :: ValidatorGen
@@ -386,7 +414,7 @@ allOf :: ValidatorGen
 allOf spec g s (Array vs) = do
   os <- traverse toObj vs
   let ss = compile spec g . RawSchema (_rsURI s) <$> os
-  Just (\x -> join $ validate <$> ss <*> pure x)
+  Just (\x -> join . vLefts $ validate <$> ss <*> pure x)
 allOf _ _ _ _ = Nothing
 
 anyOf :: ValidatorGen
@@ -394,9 +422,9 @@ anyOf spec g s (Array vs) = do
   os <- traverse toObj vs
   let ss = compile spec g . RawSchema (_rsURI s) <$> os
   Just (\x ->
-    if V.elem V.empty (validate <$> ss <*> pure x)
-      then mempty
-      else V.singleton ("Val error against anyOf " <> tshow vs <> " for: " <> tshow x))
+    case listToMaybe . rights $ validate <$> V.toList ss <*> pure x of
+      Nothing -> V.singleton ("Val error against anyOf " <> tshow vs <> " for: " <> tshow x)
+      Just _  -> mempty )
 anyOf _ _ _ _ = Nothing
 
 oneOf :: ValidatorGen
@@ -404,7 +432,7 @@ oneOf spec g s (Array vs) = do
   os <- traverse toObj vs
   let ss = compile spec g . RawSchema (_rsURI s) <$> os
   Just (\x ->
-    if count V.empty (validate <$> ss <*> pure x) == 1
+    if V.length (vRights $ validate <$> ss <*> pure x) == 1
       then mempty
       else V.singleton ("Val error against oneOf " <> tshow vs <> " for: " <> tshow x))
 oneOf _ _ _ _ = Nothing
@@ -413,9 +441,10 @@ notValidator :: ValidatorGen
 notValidator spec g s (Object val) = do
   let sub = compile spec g (RawSchema (_rsURI s) val)
   Just (\x ->
-    if V.null $ validate sub x
-      then V.singleton ("Val error against not validator " <> tshow val <> " for: " <> tshow x)
-      else mempty)
+    case validate sub x of
+      Left _  -> mempty
+      Right _ -> V.singleton ("Val error against not validator " <> tshow val
+                              <> " for: " <> tshow x))
 notValidator _ _ _ _ = Nothing
 
 -- http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03
@@ -430,9 +459,10 @@ ref spec g s (String val) = do
   p <- eitherToMaybe $ jsonPointer urlDecoded
   case resolvePointer p (Object $ _rsObject r) of
     Right (Object o) ->
-      Just $ validate $ compile spec g $ RawSchema (_rsURI r) o
+      let compiled = compile spec g $ RawSchema (_rsURI r) o
+      in Just $ either id (const mempty) . validate compiled
     _                -> Nothing
 ref _ _ _ _ = Nothing
 
 noVal :: ValidatorGen
-noVal _ _ _ _ = Just (const V.empty)
+noVal _ _ _ _ = Just (const mempty)

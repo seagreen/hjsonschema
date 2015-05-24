@@ -1,3 +1,15 @@
+# 0.6
+
+Break the API so the library doesn't induce boolean blindness.
+
+Change validate
+  was: Schema -> Value -> Vector ValErr
+  now: Schema -> Value -> Either (Vector ValErr) Value
+
+Change Schema
+  was: type Schema = Vector Validator
+  now: newtype Schema = Schema { _unSchema :: [Validator] }
+
 # 0.5.3
 
 + Switch from http-conduit to http-client.

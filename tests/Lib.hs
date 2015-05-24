@@ -15,7 +15,6 @@ import           Data.Monoid
 import           Data.Text                      (Text)
 import qualified Data.Text                      as T
 import           Data.Vector                    (Vector)
-import qualified Data.Vector                    as V
 import           System.FilePath                ((</>))
 import           Test.Framework                 (Test)
 import           Test.Framework.Providers.HUnit (testCase)
@@ -71,30 +70,32 @@ readSchemaTests dir jsonFiles = concatMapM fileToCases jsonFiles
 toTest :: SchemaTest -> Test
 toTest st =
   testCase (T.unpack $ _stDescription st) $ do
-    assertEqual "schema validity errors" V.empty $ isValidSchema (_stSchema st)
+    void . assertRight . isValidSchema $ _stSchema st
     forM_ (_stCases st) $ \sc -> do
       g <- assertRight =<< fetchRefs draft4 (_stSchema st) H.empty
-      let es = validate (compile draft4 g $ _stSchema st) (_scData sc)
+      let res = validate (compile draft4 g $ _stSchema st) (_scData sc)
       if _scValid sc
-        then assertValid   sc es
-        else assertInvalid sc es
+        then assertValid   sc res
+        else assertInvalid sc res
 
-assertValid :: SchemaTestCase -> Vector ValErr -> Assertion
-assertValid sc es =
-  unless (V.length es == 0) $ assertFailure $ unlines
+assertValid :: SchemaTestCase -> Either (Vector ValErr) Value -> Assertion
+assertValid sc (Left es) =
+  assertFailure $ unlines
     [ "    Failed to validate data"
     , "    Description: " <> T.unpack (_scDescription sc)
     , "    Data: "        <> show (_scData sc)
     , "    Errors: "      <> show es
     ]
+assertValid _ _ = return ()
 
-assertInvalid :: SchemaTestCase -> Vector ValErr -> Assertion
-assertInvalid sc es =
-  unless (V.length es > 0) $ assertFailure $ unlines
+assertInvalid :: SchemaTestCase -> Either (Vector ValErr) Value -> Assertion
+assertInvalid sc (Right _) =
+  assertFailure $ unlines
     [ "    Failed to invalidate data"
     , "    Description: " <> T.unpack (_scDescription sc)
     , "    Data: "        <> show (_scData sc)
     ]
+assertInvalid _ _ = return ()
 
 assertRight :: (Show a) => Either a b -> IO b
 assertRight a =

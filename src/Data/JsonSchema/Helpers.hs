@@ -46,22 +46,6 @@ objMembersEmbed _ _ = V.empty
 -- * Validator Helpers
 --------------------------------------------------
 
-propertiesMatches
-  :: Spec
-  -> Graph
-  -> RawSchema
-  -> Value
-  -> Maybe (Value -> (Vector ValErr, Value))
-propertiesMatches spec g s (Object val) = do
-  os <- traverse toObj val
-  let oss = compile spec g . RawSchema (_rsURI s) <$> os
-  Just (\x ->
-    case x of
-      Object y -> ( join . vectorOfElems $ H.intersectionWith validate oss y
-                  , Object $ H.difference y oss)
-      z        -> (mempty, z))
-propertiesMatches _ _ _ _ = Nothing
-
 patternPropertiesMatches
   :: Spec
   -> Graph
@@ -90,13 +74,12 @@ patternPropertiesMatches spec g s (Object val) = do
         Just _  -> V.singleton sc
 
     runVals :: (Text, Value, Vector Schema) -> Vector ValErr
-    runVals (_,v,ss) = join $ validate <$> ss <*> pure v
+    runVals (_,v,ss) = join . vLefts $ validate <$> ss <*> pure v
 
     leftovers :: Vector (Text, Value, Vector Schema) -> Value
     leftovers possiblyMatched =
       let unmatched = V.filter (\(_,_,ss) -> V.length ss == 0) possiblyMatched
       in Object . vectorToHm $ (\(v,k,_) -> (v,k)) <$> unmatched
-
 patternPropertiesMatches _ _ _ _ = Nothing
 
 isJsonType :: Value -> Vector Text -> Vector ValErr
@@ -115,14 +98,30 @@ isJsonType x xs =
                      else mkErr y xs
   where
     f :: (Show a) => Text -> Vector Text -> a -> Vector ValErr
-    f t ts d = if V.elem t ts then mempty else mkErr d ts
+    f t ts d = if V.elem t ts
+                 then mempty
+                 else mkErr d ts
 
     mkErr :: (Show a) => a -> Vector Text -> Vector ValErr
-    mkErr y ts = V.singleton $ tshow y <> " is not one of the types " <> tshow ts
+    mkErr y ts = V.singleton (tshow y <> " is not one of the types " <> tshow ts)
 
 --------------------------------------------------
 -- * Utils
 --------------------------------------------------
+
+vLefts :: Vector (Either a b) -> Vector a
+vLefts = V.concatMap f
+  where
+    f :: Either a b -> Vector a
+    f (Left e)  = V.singleton e
+    f (Right _) = mempty
+
+vRights :: Vector (Either a b) -> Vector b
+vRights = V.concatMap f
+  where
+    f :: Either a b -> Vector b
+    f (Left _)  = mempty
+    f (Right a) = V.singleton a
 
 eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe (Left _)  = Nothing
@@ -152,10 +151,6 @@ runMaybeVal' (Just val) d = val d
 -- see here: http://comments.gmane.org/gmane.comp.lang.haskell.cafe/106242
 allUnique :: (Eq a) => Vector a -> Bool
 allUnique bs = length (nub (V.toList bs)) == V.length bs
-
--- TODO: optimize
-count :: (Eq a) => a -> Vector a -> Int
-count b bs = V.length $ V.filter (== b) bs
 
 toObj :: Value -> Maybe (HashMap Text Value)
 toObj (Object a) = Just a
