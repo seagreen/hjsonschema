@@ -1,5 +1,5 @@
 name:                   hjsonschema
-version:                0.6.0.0
+version:                0.6.0.1
 synopsis:               JSON Schema Draft 4 library
 homepage:               https://github.com/seagreen/hjsonschema
 license:                MIT
@@ -26,7 +26,7 @@ library
   default-extensions:   OverloadedStrings
   other-extensions:     TemplateHaskell
   ghc-options:          -Wall
-  build-depends:        aeson                >= 0.7   && < 0.9
+  build-depends:        aeson                >= 0.7   && < 0.10
                       , base                 >= 4.6   && < 4.9
                       , bytestring           >= 0.10  && < 0.11
                       , file-embed           >= 0.0.8 && < 0.0.9
