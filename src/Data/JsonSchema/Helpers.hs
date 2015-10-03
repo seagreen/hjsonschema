@@ -1,156 +1,111 @@
 module Data.JsonSchema.Helpers where
 
-import           Control.Applicative
-import           Control.Monad
-import           Data.Aeson
-import           Data.Hashable
-import           Data.HashMap.Strict  (HashMap)
+import           Control.Exception
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict  as H
-import           Data.JsonSchema.Core
-import           Data.List
-import           Data.Monoid
 import           Data.Scientific
-import           Data.Text            (Text)
+import qualified Data.Set as S
 import qualified Data.Text            as T
-import           Data.Traversable
-import           Data.Vector          (Vector)
 import qualified Data.Vector          as V
-import           Text.RegexPR
+import           Network.HTTP.Client
+
+import           Data.JsonSchema.Core
+import           Import
 
 --------------------------------------------------
--- * Embedded Schema Layouts
+-- * Embedded schemas finders
 --------------------------------------------------
 
 noEm :: EmbeddedSchemas
-noEm _ _ = V.empty
+noEm _ _ = mempty
 
 objEmbed :: EmbeddedSchemas
-objEmbed t (Object o) = V.singleton $ RawSchema t o
-objEmbed _ _ = V.empty
+objEmbed t (Object o) = pure (RawSchema t o)
+objEmbed _ _ = mempty
 
--- TODO: optimize
 arrayEmbed :: EmbeddedSchemas
-arrayEmbed t (Array vs) = V.concat . V.toList $ objEmbed t <$> vs
-arrayEmbed _ _ = V.empty
+arrayEmbed t (Array vs) = objEmbed t =<< vs
+arrayEmbed _ _ = mempty
 
 objOrArrayEmbed :: EmbeddedSchemas
 objOrArrayEmbed t v@(Object _) = objEmbed t v
 objOrArrayEmbed t v@(Array _) = arrayEmbed t v
-objOrArrayEmbed _ _ = V.empty
+objOrArrayEmbed _ _ = mempty
 
 objMembersEmbed :: EmbeddedSchemas
-objMembersEmbed t (Object o) = V.concat $ objEmbed t <$> H.elems o
-objMembersEmbed _ _ = V.empty
+objMembersEmbed t (Object o) = objEmbed t =<< V.fromList (H.elems o)
+objMembersEmbed _ _ = mempty
 
 --------------------------------------------------
--- * Validator Helpers
+-- * Modify Validators for use in Specs
 --------------------------------------------------
 
-patternPropertiesMatches
-  :: Spec
-  -> Graph
-  -> RawSchema
-  -> Value
-  -> Maybe (Value -> (Vector ValErr, Value))
-patternPropertiesMatches spec g s (Object val) = do
-  os <- traverse toObj val
-  let vs = compile spec g . RawSchema (_rsURI s) <$> os
-  Just (\x ->
-    case x of
-      Object y -> let ms = matches (hmToVector vs) <$> hmToVector y
-                  in (ms >>= runVals, leftovers ms)
-      _        -> (mempty, x))
+-- | TODO: Is there something easier to replace these fmaps with?
+giveName
+  :: forall err. err
+  -> ValidatorConstructor err [FailureInfo]
+  -> ValidatorConstructor err [ValidationFailure err]
+giveName err = (fmap.fmap.fmap.fmap.fmap.fmap.fmap) (ValidationFailure err)
+
+modifyName
+  :: forall valErr schemaErr. (valErr -> schemaErr)
+  -> ValidatorConstructor schemaErr [ValidationFailure valErr]
+  -> ValidatorConstructor schemaErr [ValidationFailure schemaErr]
+modifyName failureHandler = (fmap.fmap.fmap.fmap.fmap.fmap.fmap) f
   where
-    matches
-      :: Vector (Text, Schema)
-      -> (Text, Value)
-      -> (Text, Value, Vector Schema)
-    matches ss (k, v) = (k, v, ss >>= match k)
+    f :: ValidationFailure valErr -> ValidationFailure schemaErr
+    f (ValidationFailure a b) = ValidationFailure (failureHandler a) b
 
-    match :: Text -> (Text, Schema) -> Vector Schema
-    match k (r, sc) =
-      case matchRegexPR (T.unpack r) (T.unpack k) of
-        Nothing -> mempty
-        Just _  -> V.singleton sc
-
-    runVals :: (Text, Value, Vector Schema) -> Vector ValErr
-    runVals (_,v,ss) = join . vLefts $ validate <$> ss <*> pure v
-
-    leftovers :: Vector (Text, Value, Vector Schema) -> Value
-    leftovers possiblyMatched =
-      let unmatched = V.filter (\(_,_,ss) -> V.length ss == 0) possiblyMatched
-      in Object . vectorToHm $ (\(v,k,_) -> (v,k)) <$> unmatched
-patternPropertiesMatches _ _ _ _ = Nothing
-
-isJsonType :: Value -> Vector Text -> Vector ValErr
-isJsonType x xs =
-  case x of
-    (Null)     -> f "null"    xs ("null" :: Text)
-    (Array y)  -> f "array"   xs y
-    (Bool y)   -> f "boolean" xs y
-    (Object y) -> f "object"  xs y
-    (String y) -> f "string"  xs y
-    (Number y) ->
-      case toBoundedInteger y :: Maybe Int of
-        Nothing -> f "number" xs y
-        Just _  -> if V.elem "number" xs || V.elem "integer" xs
-                     then mempty
-                     else mkErr y xs
-  where
-    f :: (Show a) => Text -> Vector Text -> a -> Vector ValErr
-    f t ts d = if V.elem t ts
-                 then mempty
-                 else mkErr d ts
-
-    mkErr :: (Show a) => a -> Vector Text -> Vector ValErr
-    mkErr y ts = V.singleton (tshow y <> " is not one of the types " <> tshow ts)
+-- | It's important to know if an object's a validator (even if it will never run,
+-- like the definitions validator) because parts of it might be referenced by other
+-- validators. If one of those referenced parts is itself a valid reference we
+-- need to have fetched the correct value for it. So validators that won't run are
+-- different than non-validator objects, because even if a non-validator object has
+-- a $ref" keyword it's not a valid reference and shouldn't be fetched.
+neverBuild :: ValidatorConstructor err [ValidationFailure err]
+neverBuild _ _ _ _ = Nothing
 
 --------------------------------------------------
 -- * Utils
 --------------------------------------------------
 
-vLefts :: Vector (Either a b) -> Vector a
-vLefts = V.concatMap f
-  where
-    f :: Either a b -> Vector a
-    f (Left e)  = V.singleton e
-    f (Right _) = mempty
+-- | Export the fetch function used by fetchReferencedSchemas
+defaultFetch :: Text -> IO (Either Text LBS.ByteString)
+defaultFetch url = do
+  eResp <- catch (Right <$> simpleHttp') handler
+  case eResp of
+    Left e  -> return $ Left e
+    Right b -> return $ Right b
 
-vRights :: Vector (Either a b) -> Vector b
-vRights = V.concatMap f
-  where
-    f :: Either a b -> Vector b
-    f (Left _)  = mempty
-    f (Right a) = V.singleton a
+    where
+      handler :: SomeException -> IO (Either Text LBS.ByteString)
+      handler e = return . Left . T.pack . show $ e
+
+      -- Modeled on Network.Http.Conduit.simpleHttp from http-conduit.
+      -- simpleHttp also sets "Connection: close"
+      simpleHttp' :: IO LBS.ByteString
+      simpleHttp' = do
+        man <- newManager defaultManagerSettings
+        req <- parseUrl (T.unpack url)
+        responseBody <$> httpLbs req { requestHeaders = ("Connection", "close") : requestHeaders req } man
+
+modifyFailureName :: (a -> b) -> ValidationFailure a -> ValidationFailure b
+modifyFailureName f (ValidationFailure a b) = ValidationFailure (f a) b
 
 eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe (Left _)  = Nothing
 eitherToMaybe (Right a) = Just a
 
-vectorOfElems :: HashMap k a -> Vector a
-vectorOfElems = V.fromList . H.elems
-
-hmToVector :: HashMap k a -> Vector (k, a)
-hmToVector = V.fromList . H.toList
-
-vectorToHm :: (Eq k, Hashable k) => Vector (k, a) -> HashMap k a
-vectorToHm = H.fromList . V.toList
-
-runMaybeVal :: Maybe Validator -> Value -> Vector ValErr
+runMaybeVal :: Maybe (Value -> [a]) -> Value -> [a]
 runMaybeVal Nothing _ = mempty
-runMaybeVal (Just val) d = val d
+runMaybeVal (Just val) x = val x
 
 runMaybeVal'
-  :: Maybe (Value -> (Vector ValErr, Value))
+  :: Maybe (Value -> ([a], Value))
   -> Value
-  -> (Vector ValErr, Value)
-runMaybeVal' Nothing d = (mempty, d)
-runMaybeVal' (Just val) d = val d
-
--- TODO: optimize
--- see here: http://comments.gmane.org/gmane.comp.lang.haskell.cafe/106242
-allUnique :: (Eq a) => Vector a -> Bool
-allUnique bs = length (nub (V.toList bs)) == V.length bs
+  -> ([a], Value)
+runMaybeVal' Nothing x = (mempty, x)
+runMaybeVal' (Just val) x = val x
 
 toObj :: Value -> Maybe (HashMap Text Value)
 toObj (Object a) = Just a
@@ -169,3 +124,37 @@ greaterThanZero n = if n <= 0 then Nothing else Just ()
 
 tshow :: Show a => a -> Text
 tshow = T.pack . show
+
+allUnique :: (Ord a) => Vector a -> Bool
+allUnique xs = S.size (S.fromList (V.toList xs)) == V.length xs
+
+-- | This needs benchmarking, but it can't be as bad as using O(n^2) nub.
+-- (We can't use our allUnique function directly on Values because they're
+-- not an instance of Ord).
+allUniqueValues :: Vector Value -> Bool
+allUniqueValues = allUnique . fmap OrdValue
+
+newtype OrdValue = OrdValue Value deriving Eq
+
+instance Ord OrdValue where
+  (OrdValue Null) `compare` (OrdValue Null) = EQ
+  (OrdValue Null) `compare` _               = LT
+  _               `compare` (OrdValue Null) = GT
+
+  (OrdValue (Bool x)) `compare` (OrdValue (Bool y)) = x `compare` y
+  (OrdValue (Bool _)) `compare` _                   = LT
+  _                   `compare` (OrdValue (Bool _)) = GT
+
+  (OrdValue (Number x)) `compare` (OrdValue (Number y)) = x `compare` y
+  (OrdValue (Number _)) `compare` _                     = LT
+  _                     `compare` (OrdValue (Number _)) = GT
+
+  (OrdValue (String x)) `compare` (OrdValue (String y)) = x `compare` y
+  (OrdValue (String _)) `compare` _                     = LT
+  _                     `compare` (OrdValue (String _)) = GT
+
+  (OrdValue (Array xs)) `compare` (OrdValue (Array ys)) = (OrdValue <$> xs) `compare` (OrdValue <$> ys)
+  (OrdValue (Array _))  `compare` _                     = LT
+  _                     `compare` (OrdValue (Array _))  = GT
+
+  (OrdValue (Object x)) `compare` (OrdValue (Object y)) = H.toList (OrdValue <$> x) `compare` H.toList (OrdValue <$> y)

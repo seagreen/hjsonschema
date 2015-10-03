@@ -14,7 +14,6 @@ import           Data.JsonSchema
 import           Data.Monoid
 import           Data.Text                      (Text)
 import qualified Data.Text                      as T
-import           Data.Vector                    (Vector)
 import           System.FilePath                ((</>))
 import           Test.Framework                 (Test)
 import           Test.Framework.Providers.HUnit (testCase)
@@ -70,28 +69,38 @@ readSchemaTests dir jsonFiles = concatMapM fileToCases jsonFiles
 toTest :: SchemaTest -> Test
 toTest st =
   testCase (T.unpack $ _stDescription st) $ do
-    void . assertRight . isValidSchema $ _stSchema st
+    sanityCheckTest (_stSchema st)
     forM_ (_stCases st) $ \sc -> do
-      g <- assertRight =<< fetchRefs draft4 (_stSchema st) H.empty
+      g <- assertRight =<< fetchReferencedSchemas draft4 (_stSchema st) H.empty
       let res = validate (compile draft4 g $ _stSchema st) (_scData sc)
       if _scValid sc
         then assertValid   sc res
         else assertInvalid sc res
+  where
+    sanityCheckTest :: RawSchema -> IO ()
+    sanityCheckTest rs =
+      case isValidSchema rs of
+        []   -> return ()
+        errs -> error $ unlines
+                  [ "One of the test cases has a problem! "
+                  , "Description: "         <> T.unpack (_stDescription st)
+                  , "Validation failures: " <> show errs
+                  ]
 
-assertValid :: SchemaTestCase -> Either (Vector ValErr) Value -> Assertion
-assertValid sc (Left es) =
+assertValid :: SchemaTestCase -> [ValidationFailure Draft4Failure] -> Assertion
+assertValid _ [] = return ()
+assertValid sc errs =
   assertFailure $ unlines
     [ "    Failed to validate data"
-    , "    Description: " <> T.unpack (_scDescription sc)
-    , "    Data: "        <> show (_scData sc)
-    , "    Errors: "      <> show es
+    , "    Description: "         <> T.unpack (_scDescription sc)
+    , "    Data: "                <> show (_scData sc)
+    , "    Validation failures: " <> show errs
     ]
-assertValid _ _ = return ()
 
-assertInvalid :: SchemaTestCase -> Either (Vector ValErr) Value -> Assertion
-assertInvalid sc (Right _) =
+assertInvalid :: SchemaTestCase -> [ValidationFailure Draft4Failure] -> Assertion
+assertInvalid sc [] =
   assertFailure $ unlines
-    [ "    Failed to invalidate data"
+    [ "    Validated invalid data"
     , "    Description: " <> T.unpack (_scDescription sc)
     , "    Data: "        <> show (_scData sc)
     ]
