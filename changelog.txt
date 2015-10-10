@@ -1,3 +1,15 @@
+# 0.7
+
+Change error type from Text to ValidationFailure.
+
+Revert the 0.6 changes to validate. Also switch from Vector
+to list. Validate is now:
+  Schema err -> Value -> [ValidationFailure err]
+
+Add fetchReferencedSchemas', which lets the user provide their
+own MonadIO function to be used when fetching schemas. This lets
+them do things like only fetch schemas from particular domains.
+
 # 0.6
 
 Break the API so the library doesn't induce boolean blindness.

@@ -1,47 +1,51 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Data.JsonSchema.Core where
 
-import           Data.Aeson
-import           Data.HashMap.Strict       (HashMap)
 import qualified Data.HashMap.Strict       as H
-import           Data.JsonSchema.Reference
 import           Data.Maybe
-import           Data.Text                 (Text)
-import           Data.Vector               (Vector)
-import qualified Data.Vector               as V
+
+import           Data.JsonSchema.Reference
+import           Import
 
 --------------------------------------------------
 -- * Primary API
 --------------------------------------------------
 
-compile :: Spec -> Graph -> RawSchema -> Schema
-compile spec g (RawSchema t o) = Schema . catMaybes . H.elems $ H.intersectionWith f (_unSpec spec) o
+compile :: forall err. Spec err -> Graph -> RawSchema -> Schema err
+compile spec g (RawSchema t o) =
+  let maybeValidators = H.intersectionWith f (_unSpec spec) o
+  in Schema . catMaybes . H.elems $ maybeValidators
   where
-    f :: (ValidatorGen, a) -> Value -> Maybe Validator
-    f (vGen,_) = vGen spec g $ RawSchema (newResolutionScope t o) o
+    f :: ValSpec err -> Value -> Maybe (Value -> [ValidationFailure err])
+    f (ValSpec _ construct) valJSON = construct spec g (RawSchema (newResolutionScope t o) o) valJSON
 
-validate :: Schema -> Value -> Either (Vector ValErr) Value
-validate schema x =
-  let errs = V.concatMap ($ x) $ V.fromList (_unSchema schema)
-  in if V.null errs
-    then Right x
-    else Left errs
+validate :: Schema err -> Value -> [ValidationFailure err]
+validate schema x = concat . fmap ($ x) . _unSchema $ schema
 
 --------------------------------------------------
--- * Types
+-- * Schemas
 --------------------------------------------------
 
-newtype Spec = Spec { _unSpec :: HashMap Text (ValidatorGen, EmbeddedSchemas) }
+newtype Spec err = Spec { _unSpec :: HashMap Text (ValSpec err) }
 
--- | Set of potentially mutually recursive schemas.
+newtype Schema err = Schema { _unSchema :: [Value -> [ValidationFailure err]] }
+
+data RawSchema = RawSchema
+  { _rsURI    :: Text
+  , _rsObject :: HashMap Text Value
+  }
+
+-- | A mapping of URLs to schemas.
+--
+-- Each key/value pair provides the components of a RawSchema.
 type Graph = HashMap Text (HashMap Text Value)
 
-type ValErr = Text
+--------------------------------------------------
+-- * Validators
+--------------------------------------------------
 
-newtype Schema = Schema { _unSchema :: [Validator] }
-
-type Validator = Value -> Vector ValErr
-
-type ValidatorGen = Spec -> Graph -> RawSchema -> Value -> Maybe Validator
+data ValSpec err = ValSpec EmbeddedSchemas (ValidatorConstructor err [ValidationFailure err])
 
 -- | Return a schema's immediate subschemas.
 --
@@ -50,7 +54,28 @@ type ValidatorGen = Spec -> Graph -> RawSchema -> Value -> Maybe Validator
 -- "$ref"s and "id"s that are actual schema keywords.
 type EmbeddedSchemas = Text -> Value -> Vector RawSchema
 
-data RawSchema = RawSchema
-  { _rsURI    :: Text
-  , _rsObject :: HashMap Text Value
-  }
+-- | This is what's used to write most validators in practice.
+--
+-- Its important that particular validators don't know about the error sum type
+-- of the Spec they're going to be used in. That way they can be included in
+-- other Specs later without encouraging partial functions.
+--
+-- This means that a properly written ValidatorConstructor will need its error
+-- type modified for use in a Spec. Data.JsonSchema.Helpers provides giveName
+-- and modifyName for this purpose.
+type ValidatorConstructor schemaErr valErr
+   = Spec schemaErr
+  -> Graph
+  -> RawSchema
+  -> Value
+  -> Maybe (Value -> valErr)
+
+data ValidationFailure err = ValidationFailure
+  { _failureName :: err
+  , _failureInfo :: FailureInfo
+  } deriving (Show, Read)
+
+data FailureInfo = FailureInfo
+  { _validatingData :: Value
+  , _offendingData  :: Value
+  } deriving (Show, Read)
