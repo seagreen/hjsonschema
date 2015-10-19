@@ -9,7 +9,14 @@ import           Data.JsonSchema.Core
 import           Data.JsonSchema.Helpers
 import           Import
 
-data ItemsFailure err = Items err | AdditionalItemsBool | AdditionalItemsObject err
+data ItemsFailure err
+  = Items err
+  | AdditionalItemsBool
+  | AdditionalItemsObject err
+
+data AdditionalItemsFailure err
+  = AdditionalBool
+  | AdditionalObject err
 
 -- | A combination of items and additionalItems.
 items :: ValidatorConstructor err [ValidationFailure (ItemsFailure err)]
@@ -22,36 +29,38 @@ items spec g s (Object o) =
 items spec g s (Array vs) = do
   os <- traverse toObj vs
   let subSchemas = compile spec g . RawSchema (_rsURI s) <$> V.toList os
-      mAdditionalItems = additionalItems spec g s =<< H.lookup "additionalItems" (_rsObject s)
+      mAdditionalItems = additionalItems spec g s =<< H.lookup "additionalItems" (_rsData s)
   Just $ \x ->
     case x of
       Array ys ->
         let extras = V.drop (V.length os) ys
             itemFailures = join $ fmap (modifyFailureName Items) <$> zipWith validate subSchemas (V.toList ys)
             additionalItemFailures = runMaybeVal mAdditionalItems (Array extras)
-        in itemFailures <> additionalItemFailures
+        in itemFailures <> fmap (modifyFailureName f) additionalItemFailures
       _ -> mempty
+  where
+    f :: AdditionalItemsFailure err -> ItemsFailure err
+    f AdditionalBool         = AdditionalItemsBool
+    f (AdditionalObject err) = AdditionalItemsObject err
 items _ _ _ _ = Nothing
 
 -- | Not included directly in the 'draft4' spec hashmap because it always
 -- validates data unless 'items' is also present. This is because 'items'
 -- defaults to {}.
---
--- TODO: Should have its own error type instead of sharing with Items.
-additionalItems :: ValidatorConstructor err [ValidationFailure (ItemsFailure err)]
+additionalItems :: ValidatorConstructor err [ValidationFailure (AdditionalItemsFailure err)]
 additionalItems _ _ _ val@(Bool v) =
   Just $ \x ->
     case x of
       Array ys ->
         if not v && V.length ys > 0
-          then pure $ ValidationFailure AdditionalItemsBool (FailureInfo val x)
+          then pure $ ValidationFailure AdditionalBool (FailureInfo val x)
           else mempty
       _ -> mempty
 additionalItems spec g s (Object o) =
   let subSchema = compile spec g (RawSchema (_rsURI s) o)
   in Just $ \x ->
     case x of
-      Array ys -> V.toList ys >>= fmap (modifyFailureName AdditionalItemsObject) . validate subSchema
+      Array ys -> V.toList ys >>= fmap (modifyFailureName AdditionalObject) . validate subSchema
       _        -> mempty
 additionalItems _ _ _ _ = Nothing
 

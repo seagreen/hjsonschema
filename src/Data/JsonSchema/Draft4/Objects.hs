@@ -85,7 +85,7 @@ dependencies spec g s val@(Object o) = do
         in schemaFailures <> propertyFailures
       _ -> mempty
   where
-    toSchemaDep :: Spec a -> Graph -> (Text, Value) -> [(Text, Schema a)]
+    toSchemaDep :: Spec a -> SchemaGraph -> (Text, Value) -> [(Text, Schema a)]
     toSchemaDep spc gr (t, Object ob) = pure (t, compile spc gr $ RawSchema (_rsURI s) ob)
     toSchemaDep _ _ _ = mempty
 

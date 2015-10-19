@@ -1,27 +1,55 @@
-# Intro
+![hjsonschema logo](./logo.jpg)
 
-An implementation of [JSON Schema](http://json-schema.org/) Draft 4 in haskell.
+A Haskell implementation of the current [JSON Schema](http://json-schema.org/) specification (Draft 4).
 
-# Status
-
-Still in development. Lacks solid code to handle changing resolution scope.
-
-Also note that hjsonschema uses the [regexpr](https://hackage.haskell.org/package/regexpr-0.5.4) regular expression library for the "pattern" validator. This isn't compatible with the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
+[Hackage](https://hackage.haskell.org/package/hjsonschema) / [GitHub](https://github.com/seagreen/hjsonschema) / [Travis CI](https://travis-ci.org/seagreen/hjsonschema)
 
 # Example
 
-See [Example.hs](./Example.hs).
+See [Example.hs on GitHub](https://github.com/seagreen/hjsonschema/blob/master/Example.hs).
 
-# Install Tests
+# Tests
 
-    git submodule update --init
+## Install
 
-# Notes
+`git submodule update --init`
+
+## Run
+
+Will run self-contained:
+
+`cabal test local`
+
+Will start an HTTP server temporarily on port 1234:
+
+`cabal test remote`
+
+# Details
+
+## Goals
+
++ Be a correct and fast implementation of the spec.
+
++ Be a useful reference for implementers in other languages. Haskell's high level nature, expressive type system and referential transparency suit this purpose well.
+
+## Good Parts
+
++ Passes all the tests in the [language agnostic test suite](https://github.com/json-schema/JSON-Schema-Test-Suite).
+
++ Very modular, which should make it easy to support future versions of the specification.
+
+## Bad Parts
+
++ Uses the [regexpr](https://hackage.haskell.org/package/regexpr-0.5.4) regular expression library for the "pattern" validator. It should use a library based on the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
+
+## Notes
 
 + `draft4.json` is from commit # cc8ec81ce0abe2385ebd6c2a6f2d6deb646f874a [here](https://github.com/json-schema/json-schema).
 
-# Credits
+## Credits
 
-Thanks to [Julian Berman](https://github.com/Julian) for the fantastic test suite.
+[TJ Weigel](http://tjweigel.com/) created the logo.
 
-Also thanks to Tim Baumann for his [aeson-schema](https://hackage.haskell.org/package/aeson-schema) library. Hjsonschema's test code and its implementation of `Graph` both originally came from there.
+[Tim Baumann](https://github.com/timjb) wrote [aeson-schema](https://hackage.haskell.org/package/aeson-schema), on which hjsonschema's test code and its implementation of `SchemaGraph` were based.
+
+[Julian Berman](https://github.com/Julian) maintains the fantastic [language agnostic test suite](https://github.com/json-schema/JSON-Schema-Test-Suite).

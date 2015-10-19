@@ -123,7 +123,9 @@ isValidSchema :: RawSchema -> [ValidationFailure Draft4Failure]
 isValidSchema r =
   case decode . LBS.fromStrict $ $(embedFile "draft4.json") of
     Nothing -> error "Schema decode failed (this should never happen)"
-    Just s  -> validate (compile draft4 H.empty $ RawSchema "" s) $ Object (_rsObject r)
+    Just s  ->
+      let a = RawSchema Nothing s
+      in validate (compile draft4 (SchemaGraph a mempty) a) $ Object (_rsData r)
 
 -- | Check that a 'RawSchema' conforms to the JSON Schema Draft 4
 -- master schema document. Compile it if it does.
@@ -133,7 +135,7 @@ isValidSchema r =
 --
 -- NOTE: It's not actually required to run 'isValidSchema' on
 -- prospective draft 4 schemas at all.
-compileDraft4 :: Graph -> RawSchema -> Either [ValidationFailure Draft4Failure] (Schema Draft4Failure)
+compileDraft4 :: SchemaGraph -> RawSchema -> Either [ValidationFailure Draft4Failure] (Schema Draft4Failure)
 compileDraft4 g r =
   case isValidSchema r of
     []   -> Right (compile draft4 g r)

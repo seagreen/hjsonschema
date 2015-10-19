@@ -1,3 +1,4 @@
+
 module Data.JsonSchema.Helpers where
 
 import           Control.Exception
@@ -24,7 +25,7 @@ objEmbed t (Object o) = pure (RawSchema t o)
 objEmbed _ _ = mempty
 
 arrayEmbed :: EmbeddedSchemas
-arrayEmbed t (Array vs) = objEmbed t =<< vs
+arrayEmbed t (Array vs) = objEmbed t =<< V.toList vs
 arrayEmbed _ _ = mempty
 
 objOrArrayEmbed :: EmbeddedSchemas
@@ -33,28 +34,27 @@ objOrArrayEmbed t v@(Array _) = arrayEmbed t v
 objOrArrayEmbed _ _ = mempty
 
 objMembersEmbed :: EmbeddedSchemas
-objMembersEmbed t (Object o) = objEmbed t =<< V.fromList (H.elems o)
+objMembersEmbed t (Object o) = objEmbed t =<< H.elems o
 objMembersEmbed _ _ = mempty
 
 --------------------------------------------------
 -- * Modify Validators for use in Specs
 --------------------------------------------------
 
--- | TODO: Is there something easier to replace these fmaps with?
 giveName
   :: forall err. err
   -> ValidatorConstructor err [FailureInfo]
   -> ValidatorConstructor err [ValidationFailure err]
-giveName err = (fmap.fmap.fmap.fmap.fmap.fmap.fmap) (ValidationFailure err)
+giveName err f spec g rs v = (fmap.fmap) (ValidationFailure err) <$> f spec g rs v
 
 modifyName
   :: forall valErr schemaErr. (valErr -> schemaErr)
   -> ValidatorConstructor schemaErr [ValidationFailure valErr]
   -> ValidatorConstructor schemaErr [ValidationFailure schemaErr]
-modifyName failureHandler = (fmap.fmap.fmap.fmap.fmap.fmap.fmap) f
+modifyName failureHandler f spec g rs v = (fmap.fmap) modErr <$> f spec g rs v
   where
-    f :: ValidationFailure valErr -> ValidationFailure schemaErr
-    f (ValidationFailure a b) = ValidationFailure (failureHandler a) b
+    modErr :: ValidationFailure valErr -> ValidationFailure schemaErr
+    modErr (ValidationFailure a b) = ValidationFailure (failureHandler a) b
 
 -- | It's important to know if an object's a validator (even if it will never run,
 -- like the definitions validator) because parts of it might be referenced by other

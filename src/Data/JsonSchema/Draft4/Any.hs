@@ -3,11 +3,9 @@ module Data.JsonSchema.Draft4.Any where
 
 import           Control.Monad
 import qualified Data.HashMap.Strict       as H
-import           Data.JsonPointer
+import           Data.Maybe
 import           Data.Scientific
-import           Data.Text.Encoding
 import qualified Data.Vector               as V
-import           Network.HTTP.Types.URI
 
 import           Data.JsonSchema.Core
 import           Data.JsonSchema.Helpers
@@ -93,26 +91,25 @@ oneOf _ _ _ _ = Nothing
 
 notValidator :: ValidatorConstructor err [FailureInfo]
 notValidator spec g s val@(Object o) = do
-  let sub = compile spec g (RawSchema (_rsURI s) o)
+  let subSchema = compile spec g $ RawSchema (_rsURI s) o
   Just $ \x ->
-    case validate sub x of
+    case validate subSchema x of
       [] -> pure (FailureInfo val x)
       _  -> mempty
 notValidator _ _ _ _ = Nothing
 
--- http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03
+-- JSON Reference Draft Document:
 --
--- TODO: Any members other than "$ref" in a JSON Reference object SHALL be
--- ignored.
+--      http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03
 ref :: ValidatorConstructor err [ValidationFailure err]
 ref spec g s (String val) = do
-  (reference, pointer) <- refAndPointer (_rsURI s `combineIdAndRef` val)
-  r <- RawSchema reference <$> H.lookup reference g
-  let urlDecoded = decodeUtf8 . urlDecode True . encodeUtf8 $ pointer
-  p <- eitherToMaybe $ jsonPointer urlDecoded
-  case resolvePointer p (Object $ _rsObject r) of
-    Right (Object o) ->
-      let compiled = compile spec g $ RawSchema (_rsURI r) o
-      in Just $ validate compiled
-    _ -> Nothing
+  let (mUri, mFragment) = resolveReference (_rsURI s) val
+  r <- RawSchema mUri <$> getReference mUri
+  let o = resolveFragment mFragment (_rsData r)
+  return . validate . compile spec g $ RawSchema (_rsURI r) o
+  where
+    getReference :: Maybe Text -> Maybe (HashMap Text Value)
+    getReference Nothing  = Just . _rsData . _startingSchema $ g
+    getReference (Just t) = H.lookup t (_cachedSchemas g)
+
 ref _ _ _ _ = Nothing
