@@ -14,6 +14,9 @@ import           Data.JsonSchema.Helpers
 import           Data.JsonSchema.Reference
 import           Import
 
+-- For GHCs before 7.10:
+import           Prelude                   hiding (any)
+
 -- | http://json-schema.org/latest/json-schema-validation.html#anchor76
 --
 --  > The value of this keyword MUST be an array.

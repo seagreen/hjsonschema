@@ -2,6 +2,7 @@
 
 module Main where
 
+import           Control.Applicative
 import           Data.Aeson
 import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as H
