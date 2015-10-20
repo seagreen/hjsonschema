@@ -8,7 +8,8 @@ module Data.JsonSchema
   , module Data.JsonSchema.Draft4
   ) where
 
-import           Control.Monad.Except
+
+import           Control.Monad.Except (MonadError, MonadIO, join, throwError)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Foldable
 import qualified Data.HashMap.Strict as H
@@ -22,6 +23,9 @@ import qualified Data.JsonSchema.Helpers as HE
 import           Data.JsonSchema.Reference
 import           Import
 
+-- For GHCs before 7.10:
+import           Prelude hiding (sequence)
+
 -- | Take a schema. Retrieve every document either it or its
 -- subschemas include via the "$ref" keyword. Load a 'Graph' out
 -- with them.
@@ -34,7 +38,8 @@ fetchReferencedSchemas = fetchReferencedSchemas' HE.defaultFetch
 -- is provided by the user. This allows restrictions to be added, e.g. rejecting
 -- non-local URLs.
 fetchReferencedSchemas'
-  :: forall t e m err. (IsString t, MonadError t e, Traversable e, MonadIO m)
+  -- The `Functor m` declaration is for GHCs before 7.10.
+  :: forall m e t err. (MonadIO m, Functor m, MonadError t e, Traversable e, IsString t)
   => (Text -> m (e LBS.ByteString))
   -> Spec err
   -> RawSchema

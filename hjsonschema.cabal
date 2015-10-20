@@ -1,5 +1,5 @@
 name:                   hjsonschema
-version:                0.7.0.0
+version:                0.7.1.0
 synopsis:               JSON Schema library
 homepage:               https://github.com/seagreen/hjsonschema
 license:                MIT
@@ -9,6 +9,7 @@ maintainer:             ian@housejeffries.com
 category:               Data
 build-type:             Simple
 cabal-version:          >=1.10
+tested-with:            GHC == 7.8.4, GHC == 7.10.2
 extra-source-files:     changelog.txt
                         draft4.json
                         JSON-Schema-Test-Suite/tests/draft4/*.json
@@ -35,7 +36,8 @@ library
   other-extensions:     TemplateHaskell
   ghc-options:          -Wall
   build-depends:        aeson                >= 0.7   && < 0.10
-                      , base                 >= 4.6   && < 4.9
+                        -- 4.6 doesn't have a Traversable Either instance:
+                      , base                 >= 4.7   && < 4.9
                       , bytestring           >= 0.10  && < 0.11
                       , containers           >= 0.5   && < 0.6
                       , file-embed           >= 0.0.8 && < 0.0.10

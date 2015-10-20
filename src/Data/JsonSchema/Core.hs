@@ -8,6 +8,9 @@ import           Data.Maybe
 import           Data.JsonSchema.Reference
 import           Import
 
+-- For GHCs before 7.10:
+import           Prelude                   hiding (concat, sequence)
+
 --------------------------------------------------
 -- * Primary API
 --------------------------------------------------
@@ -73,9 +76,9 @@ type ValidatorConstructor schemaErr valErr
 data ValidationFailure err = ValidationFailure
   { _failureName :: err
   , _failureInfo :: FailureInfo
-  } deriving (Show, Read)
+  } deriving (Show)
 
 data FailureInfo = FailureInfo
   { _validatingData :: Value
   , _offendingData  :: Value
-  } deriving (Show, Read)
+  } deriving (Show)
