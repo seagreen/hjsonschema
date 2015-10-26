@@ -15,7 +15,7 @@ import           Prelude                   hiding (concat, sequence)
 -- * Primary API
 --------------------------------------------------
 
-compile :: forall err. Spec err -> Graph -> RawSchema -> Schema err
+compile :: forall err. Spec err -> SchemaGraph -> RawSchema -> Schema err
 compile spec g (RawSchema t o) =
   let maybeValidators = H.intersectionWith f (_unSpec spec) o
   in Schema . catMaybes . H.elems $ maybeValidators
@@ -35,14 +35,21 @@ newtype Spec err = Spec { _unSpec :: HashMap Text (ValSpec err) }
 newtype Schema err = Schema { _unSchema :: [Value -> [ValidationFailure err]] }
 
 data RawSchema = RawSchema
-  { _rsURI    :: Text
-  , _rsObject :: HashMap Text Value
-  }
+  { _rsURI  :: !(Maybe Text)
+  -- ^ NOTE: Must not include a URI fragment.
+  , _rsData :: !(HashMap Text Value)
+  } deriving (Show)
 
--- | A mapping of URLs to schemas.
+-- | A set of RawSchemas, split into a HashMap.
 --
--- Each key/value pair provides the components of a RawSchema.
-type Graph = HashMap Text (HashMap Text Value)
+-- Keys correspond to Schema _rsURIs. Values correspond to Schema _rsObjects.
+type SchemaCache = HashMap Text (HashMap Text Value)
+
+data SchemaGraph = SchemaGraph
+  { _startingSchema :: !RawSchema
+  -- ^ The schema initially referenced by '#'.
+  , _cachedSchemas  :: !SchemaCache
+  } deriving (Show)
 
 --------------------------------------------------
 -- * Validators
@@ -55,7 +62,7 @@ data ValSpec err = ValSpec EmbeddedSchemas (ValidatorConstructor err [Validation
 -- This is used by 'Data.JsonSchema.fetchRefs' to find all the
 -- subschemas in a document. This allows it to process only
 -- "$ref"s and "id"s that are actual schema keywords.
-type EmbeddedSchemas = Text -> Value -> Vector RawSchema
+type EmbeddedSchemas = Maybe Text -> Value -> [RawSchema]
 
 -- | This is what's used to write most validators in practice.
 --
@@ -68,17 +75,17 @@ type EmbeddedSchemas = Text -> Value -> Vector RawSchema
 -- and modifyName for this purpose.
 type ValidatorConstructor schemaErr valErr
    = Spec schemaErr
-  -> Graph
+  -> SchemaGraph
   -> RawSchema
   -> Value
   -> Maybe (Value -> valErr)
 
 data ValidationFailure err = ValidationFailure
-  { _failureName :: err
-  , _failureInfo :: FailureInfo
+  { _failureName :: !err
+  , _failureInfo :: !FailureInfo
   } deriving (Show)
 
 data FailureInfo = FailureInfo
-  { _validatingData :: Value
-  , _offendingData  :: Value
+  { _validatingData :: !Value
+  , _offendingData  :: !Value
   } deriving (Show)

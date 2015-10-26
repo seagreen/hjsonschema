@@ -30,8 +30,8 @@ data AdditionalPropertiesFailure err
 properties :: forall err. ValidatorConstructor err [ValidationFailure (PropertiesFailure err)]
 properties spec g s val = do
   let mProps   = propertiesUnmatched val
-      mPatProp = patternUnmatched spec g s =<< H.lookup "patternProperties" (_rsObject s)
-      mAddProp = runAdditionalProperties spec g s =<< H.lookup "additionalProperties" (_rsObject s)
+      mPatProp = patternUnmatched spec g s =<< H.lookup "patternProperties" (_rsData s)
+      mAddProp = runAdditionalProperties spec g s =<< H.lookup "additionalProperties" (_rsData s)
   when (isNothing mProps && isNothing mPatProp && isNothing mAddProp) Nothing
   Just $ \x ->
     case x of
@@ -61,12 +61,9 @@ properties spec g s val = do
 
 patternProperties :: ValidatorConstructor err [ValidationFailure (PatternPropertiesFailure err)]
 patternProperties spec g s val = do
-  when (H.member "properties" (_rsObject s)) Nothing
+  when (H.member "properties" (_rsData s)) Nothing
   let mPatternProps = patternUnmatched spec g s val
-  -- TODO: checking additionalProperties as well doesn't help with tests.
-  -- Make sure we're doing the correct thing, then get tests for this
-  -- merged into the test suite.
-  let mAdditionalProps = runAdditionalProperties spec g s =<< H.lookup "additionalProperties" (_rsObject s)
+  let mAdditionalProps = runAdditionalProperties spec g s =<< H.lookup "additionalProperties" (_rsData s)
   when (isNothing mPatternProps && isNothing mAdditionalProps) Nothing
   Just $ \x ->
     case x of
@@ -78,7 +75,7 @@ patternProperties spec g s val = do
 
 patternUnmatched
   :: Spec err
-  -> Graph
+  -> SchemaGraph
   -> RawSchema
   -> Value
   -> Maybe (Value -> ([ValidationFailure err], Value))
@@ -122,8 +119,8 @@ patternUnmatched _ _ _ _ = Nothing
 
 additionalProperties :: ValidatorConstructor err [ValidationFailure (AdditionalPropertiesFailure err)]
 additionalProperties spec g s val = do
-  when (H.member "properties" (_rsObject s)) Nothing
-  when (H.member "patternProperties" (_rsObject s)) Nothing
+  when (H.member "properties" (_rsData s)) Nothing
+  when (H.member "patternProperties" (_rsData s)) Nothing
   runAdditionalProperties spec g s val
 
 -- | An additionalProperties validator than never disables itself.

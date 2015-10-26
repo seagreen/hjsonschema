@@ -1,3 +1,14 @@
+# 0.8
+
++ Improve scope updating and resolving.
++ Rename RawSchema's _rsObject field to _rsData.
++ Make RawSchema's _rsURI field a Maybe. This way schemas without a starting
+URI can say so explicitly with Nothing instead of with "".
++ Rename Graph to SchemaGraph. Declare it with data instead of type. Give it a
+field referencing the starting schema. This field is used to find the curent
+schema if no URI is in scope and a self-referencing $ref is found (e.g. "#").
++ Change the order of the last two arguments to fetchReferencedSchemas.
+
 # 0.7.1
 
 + Support GHC 7.8 again.

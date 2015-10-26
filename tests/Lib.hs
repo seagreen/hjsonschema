@@ -9,7 +9,6 @@ import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.ByteString.Lazy           as LBS
 import           Data.Char                      (toLower)
-import qualified Data.HashMap.Strict            as H
 import           Data.JsonSchema
 import           Data.Monoid
 import           Data.Text                      (Text)
@@ -37,8 +36,7 @@ data SchemaTestCase = SchemaTestCase
   }
 
 instance FromJSON RawSchema where
-  parseJSON = withObject "Schema" $ \o ->
-    return RawSchema { _rsURI = "", _rsObject = o }
+  parseJSON = withObject "Schema" $ return . RawSchema Nothing
 
 instance FromJSON SchemaTest where
   parseJSON = withObject "SchemaTest" $ \o -> SchemaTest
@@ -71,7 +69,7 @@ toTest st =
   testCase (T.unpack $ _stDescription st) $ do
     sanityCheckTest (_stSchema st)
     forM_ (_stCases st) $ \sc -> do
-      g <- assertRight =<< fetchReferencedSchemas draft4 (_stSchema st) H.empty
+      g <- assertRight =<< fetchReferencedSchemas draft4 mempty (_stSchema st)
       let res = validate (compile draft4 g $ _stSchema st) (_scData sc)
       if _scValid sc
         then assertValid   sc res

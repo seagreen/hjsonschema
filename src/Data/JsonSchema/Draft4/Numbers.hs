@@ -37,7 +37,7 @@ maximumVal _ _ s val@(Number n) =
   where
     checkExclusive :: (Scientific -> Scientific -> Bool, MaximumFailure)
     checkExclusive =
-      case H.lookup "exclusiveMaximum" (_rsObject s) of
+      case H.lookup "exclusiveMaximum" (_rsData s) of
         Just (Bool a) -> if a then ((>=), ExclusiveMaximum) else ((>), Maximum)
         _             -> ((>), Maximum)
 maximumVal _ _ _ _ = Nothing
@@ -55,7 +55,7 @@ minimumVal _ _ s val@(Number n) =
   where
     checkExclusive :: (Scientific -> Scientific -> Bool, MinimumFailure)
     checkExclusive =
-      case H.lookup "exclusiveMinimum" (_rsObject s) of
+      case H.lookup "exclusiveMinimum" (_rsData s) of
         Just (Bool a) -> if a then ((<=), ExclusiveMinimum) else ((<), Minimum)
         _             -> ((<), Minimum)
 minimumVal _ _ _ _ = Nothing
