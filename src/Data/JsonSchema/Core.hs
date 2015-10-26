@@ -42,7 +42,7 @@ data RawSchema = RawSchema
 
 -- | A set of RawSchemas, split into a HashMap.
 --
--- Keys correspond to Schema _rsURIs. Values correspond to Schema _rsObjects.
+-- Keys correspond to Schema _rsURIs. Values correspond to Schema _rsDatas.
 type SchemaCache = HashMap Text (HashMap Text Value)
 
 data SchemaGraph = SchemaGraph
