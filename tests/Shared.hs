@@ -1,22 +1,22 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE DeriveGeneric #-}
 
-module Lib where
+module Shared where
 
 import           Control.Applicative
 import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.TH
-import qualified Data.ByteString.Lazy           as LBS
-import           Data.Char                      (toLower)
-import           Data.JsonSchema
+import qualified Data.ByteString.Lazy   as LBS
+import           Data.Char              (toLower)
 import           Data.Monoid
-import           Data.Text                      (Text)
-import qualified Data.Text                      as T
-import           System.FilePath                ((</>))
-import           Test.Framework                 (Test)
-import           Test.Framework.Providers.HUnit (testCase)
-import           Test.HUnit                     hiding (Test)
+import           Data.Text              (Text)
+import qualified Data.Text              as T
+import           GHC.Generics
+import           System.FilePath        ((</>))
+import           Test.Tasty             (TestTree)
+import qualified Test.Tasty.HUnit       as HU
+
+import qualified Data.JsonSchema.Draft4 as D4
 
 isLocal :: String -> Bool
 isLocal file = (file /= "definitions.json")
@@ -25,7 +25,7 @@ isLocal file = (file /= "definitions.json")
 
 data SchemaTest = SchemaTest
   { _stDescription :: Text
-  , _stSchema      :: RawSchema
+  , _stSchema      :: D4.Schema
   , _stCases       :: [SchemaTestCase]
   }
 
@@ -33,16 +33,16 @@ data SchemaTestCase = SchemaTestCase
   { _scDescription :: Text
   , _scData        :: Value
   , _scValid       :: Bool
-  }
-
-instance FromJSON RawSchema where
-  parseJSON = withObject "Schema" $ return . RawSchema Nothing
+  } deriving Generic
 
 instance FromJSON SchemaTest where
   parseJSON = withObject "SchemaTest" $ \o -> SchemaTest
     <$> o .: "description"
     <*> o .: "schema"
-    <*> o .: "tests" -- I wish this were "cases"
+    <*> o .: "tests" -- Perhaps "cases" would have been a more descriptive key.
+
+instance FromJSON SchemaTestCase where
+  parseJSON = genericParseJSON defaultOptions { fieldLabelModifier = fmap toLower . drop 3 }
 
 readSchemaTests :: String -> [String] -> IO [SchemaTest]
 readSchemaTests dir jsonFiles = concatMapM fileToCases jsonFiles
@@ -54,7 +54,7 @@ readSchemaTests dir jsonFiles = concatMapM fileToCases jsonFiles
       jsonBS <- LBS.readFile fullPath
       case eitherDecode jsonBS of
         Left e -> fail $ "couldn't parse file '" <> fullPath <> "': " <> e
-        Right schemaTests -> return $ prependFileName name <$> schemaTests
+        Right schemaTests -> pure $ prependFileName name <$> schemaTests
 
     prependFileName :: String -> SchemaTest -> SchemaTest
     prependFileName fileName s = s
@@ -64,50 +64,36 @@ readSchemaTests dir jsonFiles = concatMapM fileToCases jsonFiles
     concatMapM :: (Monad m) => (a -> m [b]) -> [a] -> m [b]
     concatMapM f xs = liftM concat (mapM f xs)
 
-toTest :: SchemaTest -> Test
+toTest :: SchemaTest -> TestTree
 toTest st =
-  testCase (T.unpack $ _stDescription st) $ do
-    sanityCheckTest (_stSchema st)
+  HU.testCase (T.unpack (_stDescription st)) $ do
     forM_ (_stCases st) $ \sc -> do
-      g <- assertRight =<< fetchReferencedSchemas draft4 mempty (_stSchema st)
-      let res = validate (compile draft4 g $ _stSchema st) (_scData sc)
+      g <- assertRight =<< D4.fetchReferencedSchemas mempty (D4.SchemaContext Nothing (_stSchema st))
+      validate <- assertRight . D4.checkSchema g $ D4.SchemaContext Nothing (_stSchema st)
+      let res = validate (_scData sc)
       if _scValid sc
         then assertValid   sc res
         else assertInvalid sc res
-  where
-    sanityCheckTest :: RawSchema -> IO ()
-    sanityCheckTest rs =
-      case isValidSchema rs of
-        []   -> return ()
-        errs -> error $ unlines
-                  [ "One of the test cases has a problem! "
-                  , "Description: "         <> T.unpack (_stDescription st)
-                  , "Validation failures: " <> show errs
-                  ]
 
-assertValid :: SchemaTestCase -> [ValidationFailure Draft4Failure] -> Assertion
-assertValid _ [] = return ()
+assertValid :: SchemaTestCase -> [D4.Failure] -> HU.Assertion
+assertValid _ [] = pure ()
 assertValid sc errs =
-  assertFailure $ unlines
+  HU.assertFailure $ unlines
     [ "    Failed to validate data"
     , "    Description: "         <> T.unpack (_scDescription sc)
     , "    Data: "                <> show (_scData sc)
     , "    Validation failures: " <> show errs
     ]
 
-assertInvalid :: SchemaTestCase -> [ValidationFailure Draft4Failure] -> Assertion
+assertInvalid :: SchemaTestCase -> [D4.Failure] -> HU.Assertion
 assertInvalid sc [] =
-  assertFailure $ unlines
+  HU.assertFailure $ unlines
     [ "    Validated invalid data"
     , "    Description: " <> T.unpack (_scDescription sc)
     , "    Data: "        <> show (_scData sc)
     ]
-assertInvalid _ _ = return ()
+assertInvalid _ _ = pure ()
 
 assertRight :: (Show a) => Either a b -> IO b
-assertRight a =
-  case a of
-    Left e  -> assertFailure (show e) >> fail "assertRight failed"
-    Right b -> return b
-
-$(deriveFromJSON defaultOptions { fieldLabelModifier = map toLower . drop 3 } ''SchemaTestCase)
+assertRight (Left e)  = HU.assertFailure (show e) >> fail "assertRight failed"
+assertRight (Right b) = pure b

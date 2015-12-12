@@ -1,8 +1,7 @@
 
-module Data.JsonSchema.Reference where
+module Data.Validator.Reference where
 
-import qualified Data.HashMap.Strict    as H
-import           Data.JsonPointer
+import qualified Data.Aeson.Pointer     as P
 import qualified Data.Text              as T
 import           Data.Text.Encoding
 import           Network.HTTP.Types.URI
@@ -12,11 +11,11 @@ import           Import
 type URIBase = Maybe Text
 type URIBaseAndFragment = (Maybe Text, Maybe Text)
 
-newResolutionScope :: URIBase -> HashMap Text Value -> URIBase
-newResolutionScope mScope o =
-  case H.lookup "id" o of
-    Just (String t) -> fst . baseAndFragment $ resolveScopeAgainst mScope t
-    _               -> mScope
+newResolutionScope :: URIBase -> Maybe Text -> URIBase
+newResolutionScope mScope idKeyword =
+  case idKeyword of
+    Just t -> fst . baseAndFragment $ resolveScopeAgainst mScope t
+    _      -> mScope
 
 resolveReference :: URIBase -> Text -> URIBaseAndFragment
 resolveReference mScope t = baseAndFragment $ resolveScopeAgainst mScope t
@@ -24,16 +23,19 @@ resolveReference mScope t = baseAndFragment $ resolveScopeAgainst mScope t
 isRemoteReference :: Text -> Bool
 isRemoteReference uri = "://" `T.isInfixOf` uri
 
-resolveFragment :: Maybe Text -> HashMap Text Value -> HashMap Text Value
-resolveFragment Nothing hm        = hm
-resolveFragment (Just pointer) hm =
+resolveFragment
+  :: (FromJSON schema, ToJSON schema, Show schema)
+  => Maybe Text
+  -> schema
+  -> Maybe schema
+resolveFragment Nothing schema        = Just schema
+resolveFragment (Just pointer) schema = do
   let urlDecoded = decodeUtf8 . urlDecode True . encodeUtf8 $ pointer
-  in case jsonPointer urlDecoded of
-    Left _  -> hm
-    Right p ->
-      case resolvePointer p (Object hm) of
-        Right (Object hm') -> hm'
-        _                  -> hm
+  p <- either (const Nothing) Just (P.unescape urlDecoded)
+  x <- either (const Nothing) Just (P.resolve p (toJSON schema))
+  case fromJSON x of
+    Error _         -> Nothing
+    Success schema' -> Just schema'
 
 --------------------------------------------------
 -- * Internal

@@ -9,3 +9,4 @@ import           Data.Monoid         as Export
 import           Data.Text           as Export (Text)
 import           Data.Traversable    as Export
 import           Data.Vector         as Export (Vector)
+import           Test.QuickCheck     as Export hiding (Failure, Result, Success)

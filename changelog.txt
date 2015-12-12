@@ -1,3 +1,10 @@
+# 0.9
+
++ Partial rewrite. The API of the library has changed, see the examples
+folder for how to use the new one.
+
++ Users of the library can now write schemas in Haskell as well as JSON.
+
 # 0.8
 
 + Improve scope updating and resolving.
