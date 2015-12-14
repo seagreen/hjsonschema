@@ -133,7 +133,7 @@ runAdditionalProperties _ _ _ val@(Bool v) =
     case x of
       Object y ->
         if not v && H.size y > 0
-          then pure $ ValidationFailure AdditionalPropertiesBool (FailureInfo val x)
+          then pure $ ValidationFailure AdditionalPropertiesBool (FailureInfo val x [])
           else mempty
       _ -> mempty
 runAdditionalProperties spec g s (Object o) =

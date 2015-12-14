@@ -88,4 +88,9 @@ data ValidationFailure err = ValidationFailure
 data FailureInfo = FailureInfo
   { _validatingData :: !Value
   , _offendingData  :: !Value
+  , _failurePath :: JSONPath
   } deriving (Show)
+
+
+type JSONPath = [JSONPathElement]
+data JSONPathElement = JSONPathIndex Int | JSONPathKey String deriving (Show)

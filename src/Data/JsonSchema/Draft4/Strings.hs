@@ -16,7 +16,7 @@ maxLength _ _ _ val = do
     case x of
       String y ->
         if T.length y > n
-          then pure (FailureInfo val x)
+          then pure (FailureInfo val x [])
           else mempty
       _ -> mempty
 
@@ -28,7 +28,7 @@ minLength _ _ _ val = do
     case x of
       String y ->
         if T.length y < n
-          then pure (FailureInfo val x)
+          then pure (FailureInfo val x [])
           else mempty
       _ -> mempty
 
@@ -38,7 +38,7 @@ pattern _ _ _ val@(String t) =
     case x of
       String y ->
         case matchRegexPR (T.unpack t) (T.unpack y) of
-          Nothing -> pure (FailureInfo val x)
+          Nothing -> pure (FailureInfo val x [])
           Just _  -> mempty
       _ -> mempty
 pattern _ _ _ _ = Nothing

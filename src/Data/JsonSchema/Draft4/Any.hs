@@ -31,7 +31,7 @@ enum _ _ _ val@(Array vs) = do
   Just $ \x ->
     if V.elem x vs
       then mempty
-      else pure (FailureInfo val x)
+      else pure (FailureInfo val x [])
 enum _ _ _ _ = Nothing
 
 typeValidator :: ValidatorConstructor err [FailureInfo]
@@ -60,7 +60,7 @@ isJsonType x xs =
     f :: Text -> Vector Text -> [FailureInfo]
     f t ts = if V.elem t ts
                then mempty
-               else pure $ FailureInfo (Array (String <$> xs)) x
+               else pure $ FailureInfo (Array (String <$> xs)) x []
 
 allOf :: ValidatorConstructor err [ValidationFailure err]
 allOf spec g s (Array vs) = do
@@ -76,7 +76,7 @@ anyOf spec g s val@(Array vs) = do
   Just $ \x ->
     if any null (flip validate x <$> subSchemas)
       then mempty
-      else pure (FailureInfo val x)
+      else pure (FailureInfo val x [])
 anyOf _ _ _ _ = Nothing
 
 oneOf :: ValidatorConstructor err [FailureInfo]
@@ -86,7 +86,7 @@ oneOf spec g s val@(Array vs) = do
   Just $ \x ->
     if (length . filter null $ flip validate x <$> subSchemas) == 1
       then mempty
-      else pure (FailureInfo val x)
+      else pure (FailureInfo val x [])
 oneOf _ _ _ _ = Nothing
 
 notValidator :: ValidatorConstructor err [FailureInfo]
@@ -94,7 +94,7 @@ notValidator spec g s val@(Object o) = do
   let subSchema = compile spec g $ RawSchema (_rsURI s) o
   Just $ \x ->
     case validate subSchema x of
-      [] -> pure (FailureInfo val x)
+      [] -> pure (FailureInfo val x [])
       _  -> mempty
 notValidator _ _ _ _ = Nothing
 

@@ -53,7 +53,7 @@ additionalItems _ _ _ val@(Bool v) =
     case x of
       Array ys ->
         if not v && V.length ys > 0
-          then pure $ ValidationFailure AdditionalBool (FailureInfo val x)
+          then pure $ ValidationFailure AdditionalBool (FailureInfo val x [])
           else mempty
       _ -> mempty
 additionalItems spec g s (Object o) =
@@ -72,7 +72,7 @@ maxItems _ _ _ val = do
     case x of
       Array ys ->
         if V.length ys > n
-          then pure (FailureInfo val x)
+          then pure (FailureInfo val x [])
           else mempty
       _ -> mempty
 
@@ -84,7 +84,7 @@ minItems _ _ _ val = do
     case x of
       Array ys ->
         if V.length ys < n
-          then pure (FailureInfo val x)
+          then pure (FailureInfo val x [])
           else mempty
       _ -> mempty
 
@@ -95,6 +95,6 @@ uniqueItems _ _ _ val@(Bool v) = do
     case x of
       (Array ys) -> if allUniqueValues ys
         then mempty
-        else pure (FailureInfo val x)
+        else pure (FailureInfo val x [])
       _ -> mempty
 uniqueItems _ _ _ _ = Nothing

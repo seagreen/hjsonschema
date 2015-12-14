@@ -19,7 +19,7 @@ multipleOf _ _ _ val@(Number n) = do
     case x of
       Number y ->
         if y `mod'` n /= 0
-          then pure (FailureInfo val x)
+          then pure (FailureInfo val x [])
           else mempty
       _ -> mempty
 multipleOf _ _ _ _ = Nothing
@@ -31,7 +31,7 @@ maximumVal _ _ s val@(Number n) =
       Number y ->
         let (greater, err) = checkExclusive
         in if y `greater` n
-          then pure $ ValidationFailure err (FailureInfo val x)
+          then pure $ ValidationFailure err (FailureInfo val x [])
           else mempty
       _ -> mempty
   where
@@ -49,7 +49,7 @@ minimumVal _ _ s val@(Number n) =
       Number y ->
         let (lesser, err) = checkExclusive
         in if y `lesser` n
-          then pure $ ValidationFailure err (FailureInfo val x)
+          then pure $ ValidationFailure err (FailureInfo val x [])
           else mempty
       _ -> mempty
   where

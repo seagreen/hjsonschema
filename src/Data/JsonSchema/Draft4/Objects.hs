@@ -26,7 +26,7 @@ maxProperties _ _ _ val = do
     case x of
       Object o ->
         if H.size o > n
-          then pure (FailureInfo val x)
+          then pure (FailureInfo val x [])
           else mempty
       _ -> mempty
 
@@ -38,7 +38,7 @@ minProperties _ _ _ val = do
     case x of
       Object o ->
         if H.size o < n
-          then pure (FailureInfo val x)
+          then pure (FailureInfo val x [])
           else mempty
       _ -> mempty
 
@@ -52,7 +52,7 @@ required _ _ _ val@(Array vs) = do
     case x of
       Object o ->
         if H.size (H.difference a o) > 0
-          then pure (FailureInfo val x)
+          then pure (FailureInfo val x [])
           else mempty
       _ -> mempty
   where
@@ -113,6 +113,6 @@ dependencies spec g s val@(Object o) = do
         Nothing -> mempty
         Just _  ->
           case traverse (flip H.lookup d) ks of
-            Nothing -> pure $ ValidationFailure PropertyDependency (FailureInfo val (Object d))
+            Nothing -> pure $ ValidationFailure PropertyDependency (FailureInfo val (Object d) [])
             Just _  -> mempty
 dependencies _ _ _ _ = Nothing
