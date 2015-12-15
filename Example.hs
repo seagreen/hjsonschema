@@ -88,7 +88,7 @@ compileSchema graph rs =
 
 checkResults :: [JS.ValidationFailure JS.Draft4Failure] -> IO ()
 checkResults [] = error "OHNO we validated bad data!"
-checkResults [JS.ValidationFailure JS.UniqueItems (JS.FailureInfo x y)] =
+checkResults [JS.ValidationFailure JS.UniqueItems (JS.FailureInfo x y [])] =
   putStrLn . unlines $
     [ ""
     , "Success. We got a UniqueItems error as expected."

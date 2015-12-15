@@ -12,6 +12,7 @@ import           Text.RegexPR
 import           Data.JsonSchema.Core
 import           Data.JsonSchema.Helpers
 import           Import
+import Debug.Trace
 
 data PropertiesFailure err
   = Properties err
@@ -28,11 +29,14 @@ data AdditionalPropertiesFailure err
 
 -- | In order of what's tried: properties, patternProperties, additionalProperties
 properties :: forall err. ValidatorConstructor err [ValidationFailure (PropertiesFailure err)]
-properties spec g s val = do
+properties spec g s val _ = do
+  let addProps = H.lookup "additionalProperties" (_rsData s)
+  let patProps = H.lookup "patternProperties" (_rsData s)
   let mProps   = propertiesUnmatched val
-      mPatProp = patternUnmatched spec g s =<< H.lookup "patternProperties" (_rsData s)
-      mAddProp = runAdditionalProperties spec g s =<< H.lookup "additionalProperties" (_rsData s)
-  when (isNothing mProps && isNothing mPatProp && isNothing mAddProp) Nothing
+      mPatProp = patProps >>= \props -> patternUnmatched spec g s props mempty
+      mAddProp = addProps >>= \props -> runAdditionalProperties spec g s props mempty
+
+  when (traceShowId (isNothing mProps) && traceShowId (isNothing mPatProp) && traceShowId (isNothing mAddProp)) Nothing
   Just $ \x ->
     case x of
       Object y ->
@@ -60,10 +64,11 @@ properties spec g s val = do
     propertiesUnmatched _ = Nothing
 
 patternProperties :: ValidatorConstructor err [ValidationFailure (PatternPropertiesFailure err)]
-patternProperties spec g s val = do
+patternProperties spec g s val _ = do
   when (H.member "properties" (_rsData s)) Nothing
-  let mPatternProps = patternUnmatched spec g s val
-  let mAdditionalProps = runAdditionalProperties spec g s =<< H.lookup "additionalProperties" (_rsData s)
+  let addProps = H.lookup "additionalProperties" (_rsData s)
+  let mPatternProps = patternUnmatched spec g s val mempty
+  let mAdditionalProps = addProps >>= \props -> runAdditionalProperties spec g s props mempty
   when (isNothing mPatternProps && isNothing mAdditionalProps) Nothing
   Just $ \x ->
     case x of
@@ -78,8 +83,9 @@ patternUnmatched
   -> SchemaGraph
   -> RawSchema
   -> Value
+  -> JSONPath
   -> Maybe (Value -> ([ValidationFailure err], Value))
-patternUnmatched spec g s (Object val) = do
+patternUnmatched spec g s (Object val) _ = do
   os <- traverse toObj val
   let subSchemas = compile spec g . RawSchema (_rsURI s) <$> os
   Just (\x ->
@@ -115,31 +121,31 @@ patternUnmatched spec g s (Object val) = do
 
     leftovers :: HashMap Text (Value, [Schema a]) -> HashMap Text Value
     leftovers possiblyMatched = fst <$> H.filter (null . snd) possiblyMatched
-patternUnmatched _ _ _ _ = Nothing
+patternUnmatched _ _ _ _ _ = Nothing
 
 additionalProperties :: ValidatorConstructor err [ValidationFailure (AdditionalPropertiesFailure err)]
-additionalProperties spec g s val = do
+additionalProperties spec g s val _ = do
   when (H.member "properties" (_rsData s)) Nothing
   when (H.member "patternProperties" (_rsData s)) Nothing
-  runAdditionalProperties spec g s val
+  runAdditionalProperties spec g s val mempty
 
 -- | An additionalProperties validator than never disables itself.
 --
 -- Not meant to be used standalone, but useful inside of the properties
 -- and patternProperties validators.
 runAdditionalProperties :: ValidatorConstructor err [ValidationFailure (AdditionalPropertiesFailure err)]
-runAdditionalProperties _ _ _ val@(Bool v) =
+runAdditionalProperties _ _ _ val@(Bool v) _ =
   Just $ \x ->
     case x of
       Object y ->
         if not v && H.size y > 0
-          then pure $ ValidationFailure AdditionalPropertiesBool (FailureInfo val x [])
+          then pure $ ValidationFailure AdditionalPropertiesBool (FailureInfo val x mempty)
           else mempty
       _ -> mempty
-runAdditionalProperties spec g s (Object o) =
+runAdditionalProperties spec g s (Object o) _ =
   let sub = compile spec g (RawSchema (_rsURI s) o)
   in Just $ \x ->
     case x of
       Object y -> H.elems y >>= fmap (modifyFailureName AdditionalPropertiesObject) . validate sub
       _        -> mempty
-runAdditionalProperties _ _ _ _ = Nothing
+runAdditionalProperties _ _ _ _ _ = Nothing

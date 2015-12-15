@@ -21,7 +21,7 @@ compile spec g (RawSchema t o) =
   in Schema . catMaybes . H.elems $ maybeValidators
   where
     f :: ValSpec err -> Value -> Maybe (Value -> [ValidationFailure err])
-    f (ValSpec _ construct) valJSON = construct spec g (RawSchema (newResolutionScope t o) o) valJSON
+    f (ValSpec _ construct) valJSON = construct spec g (RawSchema (newResolutionScope t o) o) valJSON mempty
 
 validate :: Schema err -> Value -> [ValidationFailure err]
 validate schema x = concat . fmap ($ x) . _unSchema $ schema
@@ -78,6 +78,7 @@ type ValidatorConstructor schemaErr valErr
   -> SchemaGraph
   -> RawSchema
   -> Value
+  -> JSONPath
   -> Maybe (Value -> valErr)
 
 data ValidationFailure err = ValidationFailure
@@ -88,9 +89,8 @@ data ValidationFailure err = ValidationFailure
 data FailureInfo = FailureInfo
   { _validatingData :: !Value
   , _offendingData  :: !Value
-  , _failurePath :: JSONPath
+  , _failurePath    :: JSONPath
   } deriving (Show)
 
-
 type JSONPath = [JSONPathElement]
-data JSONPathElement = JSONPathIndex Int | JSONPathKey String deriving (Show)
+data JSONPathElement = JSONPathIndex Int | JSONPathKey Text deriving (Show)
