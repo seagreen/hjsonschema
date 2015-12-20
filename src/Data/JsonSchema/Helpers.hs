@@ -45,13 +45,13 @@ giveName
   :: forall err. err
   -> ValidatorConstructor err [FailureInfo]
   -> ValidatorConstructor err [ValidationFailure err]
-giveName err f spec g rs v _ = (fmap.fmap) (ValidationFailure err) <$> f spec g rs v mempty
+giveName err f spec g rs v path = (fmap.fmap) (ValidationFailure err) <$> f spec g rs v path
 
 modifyName
   :: forall valErr schemaErr. (valErr -> schemaErr)
   -> ValidatorConstructor schemaErr [ValidationFailure valErr]
   -> ValidatorConstructor schemaErr [ValidationFailure schemaErr]
-modifyName failureHandler f spec g rs v _ = (fmap.fmap) modErr <$> f spec g rs v mempty
+modifyName failureHandler f spec g rs v path = (fmap.fmap) modErr <$> f spec g rs v path
   where
     modErr :: ValidationFailure valErr -> ValidationFailure schemaErr
     modErr (ValidationFailure a b) = ValidationFailure (failureHandler a) b

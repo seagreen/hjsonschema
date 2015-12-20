@@ -12,7 +12,6 @@ import           Text.RegexPR
 import           Data.JsonSchema.Core
 import           Data.JsonSchema.Helpers
 import           Import
-import Debug.Trace
 
 data PropertiesFailure err
   = Properties err
@@ -29,14 +28,14 @@ data AdditionalPropertiesFailure err
 
 -- | In order of what's tried: properties, patternProperties, additionalProperties
 properties :: forall err. ValidatorConstructor err [ValidationFailure (PropertiesFailure err)]
-properties spec g s val _ = do
+properties spec g s val path = do
   let addProps = H.lookup "additionalProperties" (_rsData s)
   let patProps = H.lookup "patternProperties" (_rsData s)
-  let mProps   = propertiesUnmatched val
-      mPatProp = patProps >>= \props -> patternUnmatched spec g s props mempty
-      mAddProp = addProps >>= \props -> runAdditionalProperties spec g s props mempty
+  let mProps   = propertiesUnmatched val path
+      mPatProp = patProps >>= \props -> patternUnmatched spec g s props path
+      mAddProp = addProps >>= \props -> runAdditionalProperties spec g s props path
 
-  when (traceShowId (isNothing mProps) && traceShowId (isNothing mPatProp) && traceShowId (isNothing mAddProp)) Nothing
+  when (isNothing mProps && isNothing mPatProp && isNothing mAddProp) Nothing
   Just $ \x ->
     case x of
       Object y ->
@@ -49,10 +48,10 @@ properties spec g s val _ = do
              <> fmap (modifyFailureName PropAdditional) additionalFailures
       _ -> mempty
   where
-    propertiesUnmatched :: Value -> Maybe (Value -> ([ValidationFailure err], Value))
-    propertiesUnmatched (Object o) = do
+    propertiesUnmatched :: Value -> JSONPath -> Maybe (Value -> ([ValidationFailure err], Value))
+    propertiesUnmatched (Object o) path = do
       os <- traverse toObj o
-      let matchedSchemas = compile spec g . RawSchema (_rsURI s) <$> os
+      let matchedSchemas = H.mapWithKey (\k v -> compile spec g (path ++ [JSONPathKey k]) (RawSchema (_rsURI s) v)) os
       Just (\x ->
         case x of
           Object y ->
@@ -61,14 +60,14 @@ properties spec g s val _ = do
                 leftovers = Object (H.difference y matchedSchemas)
             in (failures, leftovers)
           z -> (mempty, z))
-    propertiesUnmatched _ = Nothing
+    propertiesUnmatched _ _ = Nothing
 
 patternProperties :: ValidatorConstructor err [ValidationFailure (PatternPropertiesFailure err)]
-patternProperties spec g s val _ = do
+patternProperties spec g s val path = do
   when (H.member "properties" (_rsData s)) Nothing
   let addProps = H.lookup "additionalProperties" (_rsData s)
-  let mPatternProps = patternUnmatched spec g s val mempty
-  let mAdditionalProps = addProps >>= \props -> runAdditionalProperties spec g s props mempty
+  let mPatternProps = patternUnmatched spec g s val path
+  let mAdditionalProps = addProps >>= \props -> runAdditionalProperties spec g s props path
   when (isNothing mPatternProps && isNothing mAdditionalProps) Nothing
   Just $ \x ->
     case x of
@@ -85,9 +84,9 @@ patternUnmatched
   -> Value
   -> JSONPath
   -> Maybe (Value -> ([ValidationFailure err], Value))
-patternUnmatched spec g s (Object val) _ = do
+patternUnmatched spec g s (Object val) path = do
   os <- traverse toObj val
-  let subSchemas = compile spec g . RawSchema (_rsURI s) <$> os
+  let subSchemas = H.mapWithKey (\k v -> compile spec g (path ++ [JSONPathKey k]) (RawSchema (_rsURI s) v)) os
   Just (\x ->
     case x of
       Object y -> let ms = H.foldlWithKey' (matches subSchemas) mempty y
@@ -124,28 +123,28 @@ patternUnmatched spec g s (Object val) _ = do
 patternUnmatched _ _ _ _ _ = Nothing
 
 additionalProperties :: ValidatorConstructor err [ValidationFailure (AdditionalPropertiesFailure err)]
-additionalProperties spec g s val _ = do
+additionalProperties spec g s val path = do
   when (H.member "properties" (_rsData s)) Nothing
   when (H.member "patternProperties" (_rsData s)) Nothing
-  runAdditionalProperties spec g s val mempty
+  runAdditionalProperties spec g s val path
 
 -- | An additionalProperties validator than never disables itself.
 --
 -- Not meant to be used standalone, but useful inside of the properties
 -- and patternProperties validators.
 runAdditionalProperties :: ValidatorConstructor err [ValidationFailure (AdditionalPropertiesFailure err)]
-runAdditionalProperties _ _ _ val@(Bool v) _ =
+runAdditionalProperties _ _ _ val@(Bool v) path =
   Just $ \x ->
     case x of
       Object y ->
         if not v && H.size y > 0
-          then pure $ ValidationFailure AdditionalPropertiesBool (FailureInfo val x mempty)
+          then pure $ ValidationFailure AdditionalPropertiesBool (FailureInfo val x path)
           else mempty
       _ -> mempty
-runAdditionalProperties spec g s (Object o) _ =
-  let sub = compile spec g (RawSchema (_rsURI s) o)
+runAdditionalProperties spec g s (Object o) path =
+  let sub p = compile spec g (path ++ [JSONPathKey p]) $ RawSchema (_rsURI s) o
   in Just $ \x ->
     case x of
-      Object y -> H.elems y >>= fmap (modifyFailureName AdditionalPropertiesObject) . validate sub
+      Object y -> H.toList y >>= \(k, v) -> fmap (modifyFailureName AdditionalPropertiesObject) $ validate (sub k) v
       _        -> mempty
 runAdditionalProperties _ _ _ _ _ = Nothing

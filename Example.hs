@@ -82,7 +82,7 @@ fullExample = do
 
 compileSchema :: JS.SchemaGraph -> JS.RawSchema -> IO (JS.Schema JS.Draft4Failure)
 compileSchema graph rs =
-  case JS.compileDraft4 graph rs of
+  case JS.compileDraft4 graph [] rs of
     Left failure -> error $ "Not a valid schema: " <> show failure
     Right schema -> return schema
 

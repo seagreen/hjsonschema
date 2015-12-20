@@ -15,13 +15,13 @@ import           Prelude                   hiding (concat, sequence)
 -- * Primary API
 --------------------------------------------------
 
-compile :: forall err. Spec err -> SchemaGraph -> RawSchema -> Schema err
-compile spec g (RawSchema t o) =
+compile :: forall err. Spec err -> SchemaGraph -> JSONPath -> RawSchema -> Schema err
+compile spec g path (RawSchema t o) =
   let maybeValidators = H.intersectionWith f (_unSpec spec) o
   in Schema . catMaybes . H.elems $ maybeValidators
   where
     f :: ValSpec err -> Value -> Maybe (Value -> [ValidationFailure err])
-    f (ValSpec _ construct) valJSON = construct spec g (RawSchema (newResolutionScope t o) o) valJSON mempty
+    f (ValSpec _ construct) valJSON = construct spec g (RawSchema (newResolutionScope t o) o) valJSON path
 
 validate :: Schema err -> Value -> [ValidationFailure err]
 validate schema x = concat . fmap ($ x) . _unSchema $ schema
@@ -93,4 +93,4 @@ data FailureInfo = FailureInfo
   } deriving (Show)
 
 type JSONPath = [JSONPathElement]
-data JSONPathElement = JSONPathIndex Int | JSONPathKey Text deriving (Show)
+data JSONPathElement = JSONPathIndex Integer | JSONPathKey Text deriving (Show)

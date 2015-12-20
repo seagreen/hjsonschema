@@ -19,31 +19,31 @@ import           Import
 data DependencyFailure err = SchemaDependency err | PropertyDependency
 
 maxProperties :: ValidatorConstructor err [FailureInfo]
-maxProperties _ _ _ val _ = do
+maxProperties _ _ _ val path = do
   n <- fromJSONInt val
   greaterThanZero n
   Just $ \x ->
     case x of
       Object o ->
         if H.size o > n
-          then pure (FailureInfo val x mempty)
+          then pure (FailureInfo val x path)
           else mempty
       _ -> mempty
 
 minProperties :: ValidatorConstructor err [FailureInfo]
-minProperties _ _ _ val _ = do
+minProperties _ _ _ val path = do
   n <- fromJSONInt val
   greaterThanZero n
   Just $ \x ->
     case x of
       Object o ->
         if H.size o < n
-          then pure (FailureInfo val x mempty)
+          then pure (FailureInfo val x path)
           else mempty
       _ -> mempty
 
 required :: ValidatorConstructor err [FailureInfo]
-required _ _ _ val@(Array vs) _ = do
+required _ _ _ val@(Array vs) path = do
   when (V.length vs == 0) Nothing
   ts <- traverse toTxt vs
   let a = vectorToMapSet ts
@@ -52,7 +52,7 @@ required _ _ _ val@(Array vs) _ = do
     case x of
       Object o ->
         if H.size (H.difference a o) > 0
-          then pure (FailureInfo val x mempty)
+          then pure (FailureInfo val x path)
           else mempty
       _ -> mempty
   where
@@ -72,7 +72,7 @@ required _ _ _ _ _ = Nothing
 -- > Each element MUST be a string, and elements in the array MUST be unique.
 -- > This is called a property dependency.
 dependencies :: ValidatorConstructor err [ValidationFailure (DependencyFailure err)]
-dependencies spec g s val@(Object o) _ = do
+dependencies spec g s val@(Object o) path = do
   let vs = H.toList o
       schemaDeps = vs >>= toSchemaDep spec g
       propDeps = vs >>= toPropDep
@@ -86,7 +86,7 @@ dependencies spec g s val@(Object o) _ = do
       _ -> mempty
   where
     toSchemaDep :: Spec a -> SchemaGraph -> (Text, Value) -> [(Text, Schema a)]
-    toSchemaDep spc gr (t, Object ob) = pure (t, compile spc gr $ RawSchema (_rsURI s) ob)
+    toSchemaDep spc gr (t, Object ob) = pure (t, compile spc gr (path ++ [JSONPathKey t]) $ RawSchema (_rsURI s) ob)
     toSchemaDep _ _ _ = mempty
 
     toPropDep :: (Text, Value) -> [(Text, Vector Text)]
@@ -113,6 +113,6 @@ dependencies spec g s val@(Object o) _ = do
         Nothing -> mempty
         Just _  ->
           case traverse (flip H.lookup d) ks of
-            Nothing -> pure $ ValidationFailure PropertyDependency (FailureInfo val (Object d) mempty)
+            Nothing -> pure $ ValidationFailure PropertyDependency (FailureInfo val (Object d) path)
             Just _  -> mempty
 dependencies _ _ _ _ _ = Nothing

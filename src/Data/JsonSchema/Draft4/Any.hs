@@ -26,24 +26,24 @@ import           Prelude                   hiding (any)
 -- NOTE: We actually respect this, and don't build the validator
 -- if any of the elements aren't unique.
 enum :: ValidatorConstructor err [FailureInfo]
-enum _ _ _ val@(Array vs) _ = do
+enum _ _ _ val@(Array vs) path = do
   when (V.null vs || not (allUniqueValues vs)) Nothing
   Just $ \x ->
     if V.elem x vs
       then mempty
-      else pure (FailureInfo val x mempty)
+      else pure (FailureInfo val x path)
 enum _ _ _ _ _ = Nothing
 
 typeValidator :: ValidatorConstructor err [FailureInfo]
-typeValidator _ _ _ (String val) _ = Just $ \x -> isJsonType x (pure val)
-typeValidator _ _ _ (Array vs) _ = do
+typeValidator _ _ _ (String val) path = Just $ \x -> isJsonType path x (pure val)
+typeValidator _ _ _ (Array vs) path = do
   ts <- traverse toTxt vs
   unless (allUnique ts) Nothing
-  Just (`isJsonType` ts)
+  Just (\x -> isJsonType path x ts)
 typeValidator _ _ _ _ _ = Nothing
 
-isJsonType :: Value -> Vector Text -> [FailureInfo]
-isJsonType x xs =
+isJsonType :: JSONPath -> Value -> Vector Text -> [FailureInfo]
+isJsonType path x xs =
   case x of
     (Null)     -> f "null"    xs
     (Array _)  -> f "array"   xs
@@ -60,41 +60,41 @@ isJsonType x xs =
     f :: Text -> Vector Text -> [FailureInfo]
     f t ts = if V.elem t ts
                then mempty
-               else pure $ FailureInfo (Array (String <$> xs)) x mempty
+               else pure $ FailureInfo (Array (String <$> xs)) x path
 
 allOf :: ValidatorConstructor err [ValidationFailure err]
-allOf spec g s (Array vs) _ = do
+allOf spec g s (Array vs) path = do
   os <- traverse toObj vs
-  let subSchemas = compile spec g . RawSchema (_rsURI s) <$> V.toList os
+  let subSchemas = compile spec g path . RawSchema (_rsURI s) <$> V.toList os
   Just $ \x -> join $ flip validate x <$> subSchemas
 allOf _ _ _ _ _ = Nothing
 
 anyOf :: ValidatorConstructor err [FailureInfo]
-anyOf spec g s val@(Array vs) _ = do
+anyOf spec g s val@(Array vs) path = do
   os <- traverse toObj vs
-  let subSchemas = compile spec g . RawSchema (_rsURI s) <$> os
+  let subSchemas = compile spec g path . RawSchema (_rsURI s) <$> os
   Just $ \x ->
     if any null (flip validate x <$> subSchemas)
       then mempty
-      else pure (FailureInfo val x mempty)
+      else pure (FailureInfo val x path)
 anyOf _ _ _ _ _ = Nothing
 
 oneOf :: ValidatorConstructor err [FailureInfo]
-oneOf spec g s val@(Array vs) _ = do
+oneOf spec g s val@(Array vs) path = do
   os <- traverse toObj $ V.toList vs
-  let subSchemas = compile spec g . RawSchema (_rsURI s) <$> os
+  let subSchemas = compile spec g path . RawSchema (_rsURI s) <$> os
   Just $ \x ->
     if (length . filter null $ flip validate x <$> subSchemas) == 1
       then mempty
-      else pure (FailureInfo val x mempty)
+      else pure (FailureInfo val x path)
 oneOf _ _ _ _ _ = Nothing
 
 notValidator :: ValidatorConstructor err [FailureInfo]
-notValidator spec g s val@(Object o) _ = do
-  let subSchema = compile spec g $ RawSchema (_rsURI s) o
+notValidator spec g s val@(Object o) path = do
+  let subSchema = compile spec g path $ RawSchema (_rsURI s) o
   Just $ \x ->
     case validate subSchema x of
-      [] -> pure (FailureInfo val x mempty)
+      [] -> pure (FailureInfo val x path)
       _  -> mempty
 notValidator _ _ _ _ _ = Nothing
 
@@ -102,11 +102,11 @@ notValidator _ _ _ _ _ = Nothing
 --
 --      http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03
 ref :: ValidatorConstructor err [ValidationFailure err]
-ref spec g s (String val) _ = do
+ref spec g s (String val) path = do
   let (mUri, mFragment) = resolveReference (_rsURI s) val
   r <- RawSchema mUri <$> getReference mUri
   let o = resolveFragment mFragment (_rsData r)
-  return . validate . compile spec g $ RawSchema (_rsURI r) o
+  return . validate . compile spec g path $ RawSchema (_rsURI r) o
   where
     getReference :: Maybe Text -> Maybe (HashMap Text Value)
     getReference Nothing  = Just . _rsData . _startingSchema $ g

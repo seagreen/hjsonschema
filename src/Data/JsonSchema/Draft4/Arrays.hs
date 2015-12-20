@@ -20,17 +20,16 @@ data AdditionalItemsFailure err
 
 -- | A combination of items and additionalItems.
 items :: ValidatorConstructor err [ValidationFailure (ItemsFailure err)]
-items spec g s (Object o) _ =
-  let subSchema = compile spec g (RawSchema (_rsURI s) o)
+items spec g s (Object o) path =
+  let subSchema index = compile spec g (path ++ [JSONPathIndex index]) $ RawSchema (_rsURI s) o
   in Just $ \x ->
     case x of
-      Array ys -> V.toList ys >>= fmap (modifyFailureName Items) . validate subSchema
+      Array ys -> zip [0..] (V.toList ys) >>= \(index, val) -> fmap (modifyFailureName Items) $ validate (subSchema index) val
       _        -> mempty
-items spec g s (Array vs) _ = do
+items spec g s (Array vs) path = do
   os <- traverse toObj vs
-  let addItems = H.lookup "additionalItems" (_rsData s)
-  let subSchemas = compile spec g . RawSchema (_rsURI s) <$> V.toList os
-      mAdditionalItems = addItems >>= \is -> additionalItems spec g s is mempty
+  let subSchemas = zip [0..] (V.toList os) >>= \(index, val) -> pure $ compile spec g (path ++ [JSONPathIndex index]) (RawSchema (_rsURI s) val)
+      mAdditionalItems = H.lookup "additionalItems" (_rsData s) >>= \is -> additionalItems spec g s is path
   Just $ \x ->
     case x of
       Array ys ->
@@ -49,53 +48,53 @@ items _ _ _ _ _ = Nothing
 -- validates data unless 'items' is also present. This is because 'items'
 -- defaults to {}.
 additionalItems :: ValidatorConstructor err [ValidationFailure (AdditionalItemsFailure err)]
-additionalItems _ _ _ val@(Bool v) _ =
+additionalItems _ _ _ val@(Bool v) path =
   Just $ \x ->
     case x of
       Array ys ->
         if not v && V.length ys > 0
-          then pure $ ValidationFailure AdditionalBool (FailureInfo val x mempty)
+          then pure $ ValidationFailure AdditionalBool (FailureInfo val x path)
           else mempty
       _ -> mempty
-additionalItems spec g s (Object o) _ =
-  let subSchema = compile spec g (RawSchema (_rsURI s) o)
+additionalItems spec g s (Object o) path =
+  let subSchema index = compile spec g (path ++ [JSONPathIndex index]) (RawSchema (_rsURI s) o)
   in Just $ \x ->
     case x of
-      Array ys -> V.toList ys >>= fmap (modifyFailureName AdditionalObject) . validate subSchema
+      Array ys -> zip [0..] (V.toList ys) >>= \(index, val) -> fmap (modifyFailureName AdditionalObject) $ validate (subSchema index) val
       _        -> mempty
 additionalItems _ _ _ _ _ = Nothing
 
 maxItems :: ValidatorConstructor err [FailureInfo]
-maxItems _ _ _ val _ = do
+maxItems _ _ _ val path = do
   n <- fromJSONInt val
   greaterThanZero n
   Just $ \x ->
     case x of
       Array ys ->
         if V.length ys > n
-          then pure (FailureInfo val x mempty)
+          then pure (FailureInfo val x path)
           else mempty
       _ -> mempty
 
 minItems :: ValidatorConstructor err [FailureInfo]
-minItems _ _ _ val _ = do
+minItems _ _ _ val path = do
   n <- fromJSONInt val
   greaterThanZero n
   Just $ \x ->
     case x of
       Array ys ->
         if V.length ys < n
-          then pure (FailureInfo val x mempty)
+          then pure (FailureInfo val x path)
           else mempty
       _ -> mempty
 
 uniqueItems :: ValidatorConstructor err [FailureInfo]
-uniqueItems _ _ _ val@(Bool v) _ = do
+uniqueItems _ _ _ val@(Bool v) path = do
   unless v Nothing
   Just $ \x ->
     case x of
       (Array ys) -> if allUniqueValues ys
         then mempty
-        else pure (FailureInfo val x mempty)
+        else pure (FailureInfo val x path)
       _ -> mempty
 uniqueItems _ _ _ _ _ = Nothing
