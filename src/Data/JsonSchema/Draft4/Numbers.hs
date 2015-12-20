@@ -13,25 +13,25 @@ data MaximumFailure = Maximum | ExclusiveMaximum
 data MinimumFailure = Minimum | ExclusiveMinimum
 
 multipleOf :: ValidatorConstructor err [FailureInfo]
-multipleOf _ _ _ val@(Number n) = do
+multipleOf _ _ _ val@(Number n) path = do
   greaterThanZero n
   Just $ \x ->
     case x of
       Number y ->
         if y `mod'` n /= 0
-          then pure (FailureInfo val x)
+          then pure (FailureInfo val x path)
           else mempty
       _ -> mempty
-multipleOf _ _ _ _ = Nothing
+multipleOf _ _ _ _ _ = Nothing
 
 maximumVal :: ValidatorConstructor err [ValidationFailure MaximumFailure]
-maximumVal _ _ s val@(Number n) =
+maximumVal _ _ s val@(Number n) path =
   Just $ \x ->
     case x of
       Number y ->
         let (greater, err) = checkExclusive
         in if y `greater` n
-          then pure $ ValidationFailure err (FailureInfo val x)
+          then pure $ ValidationFailure err (FailureInfo val x path)
           else mempty
       _ -> mempty
   where
@@ -40,16 +40,16 @@ maximumVal _ _ s val@(Number n) =
       case H.lookup "exclusiveMaximum" (_rsData s) of
         Just (Bool a) -> if a then ((>=), ExclusiveMaximum) else ((>), Maximum)
         _             -> ((>), Maximum)
-maximumVal _ _ _ _ = Nothing
+maximumVal _ _ _ _ _ = Nothing
 
 minimumVal :: ValidatorConstructor err [ValidationFailure MinimumFailure]
-minimumVal _ _ s val@(Number n) =
+minimumVal _ _ s val@(Number n) path =
   Just $ \x ->
     case x of
       Number y ->
         let (lesser, err) = checkExclusive
         in if y `lesser` n
-          then pure $ ValidationFailure err (FailureInfo val x)
+          then pure $ ValidationFailure err (FailureInfo val x path)
           else mempty
       _ -> mempty
   where
@@ -58,4 +58,4 @@ minimumVal _ _ s val@(Number n) =
       case H.lookup "exclusiveMinimum" (_rsData s) of
         Just (Bool a) -> if a then ((<=), ExclusiveMinimum) else ((<), Minimum)
         _             -> ((<), Minimum)
-minimumVal _ _ _ _ = Nothing
+minimumVal _ _ _ _ _ = Nothing

@@ -70,14 +70,14 @@ toTest st =
     sanityCheckTest (_stSchema st)
     forM_ (_stCases st) $ \sc -> do
       g <- assertRight =<< fetchReferencedSchemas draft4 mempty (_stSchema st)
-      let res = validate (compile draft4 g $ _stSchema st) (_scData sc)
+      let res = validate (compile draft4 g [] $ _stSchema st) (_scData sc)
       if _scValid sc
         then assertValid   sc res
         else assertInvalid sc res
   where
     sanityCheckTest :: RawSchema -> IO ()
     sanityCheckTest rs =
-      case isValidSchema rs of
+      case isValidSchema [] rs of
         []   -> return ()
         errs -> error $ unlines
                   [ "One of the test cases has a problem! "

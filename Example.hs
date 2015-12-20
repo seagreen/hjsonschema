@@ -82,13 +82,13 @@ fullExample = do
 
 compileSchema :: JS.SchemaGraph -> JS.RawSchema -> IO (JS.Schema JS.Draft4Failure)
 compileSchema graph rs =
-  case JS.compileDraft4 graph rs of
+  case JS.compileDraft4 graph [] rs of
     Left failure -> error $ "Not a valid schema: " <> show failure
     Right schema -> return schema
 
 checkResults :: [JS.ValidationFailure JS.Draft4Failure] -> IO ()
 checkResults [] = error "OHNO we validated bad data!"
-checkResults [JS.ValidationFailure JS.UniqueItems (JS.FailureInfo x y)] =
+checkResults [JS.ValidationFailure JS.UniqueItems (JS.FailureInfo x y [])] =
   putStrLn . unlines $
     [ ""
     , "Success. We got a UniqueItems error as expected."

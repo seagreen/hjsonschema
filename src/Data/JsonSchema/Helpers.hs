@@ -45,13 +45,13 @@ giveName
   :: forall err. err
   -> ValidatorConstructor err [FailureInfo]
   -> ValidatorConstructor err [ValidationFailure err]
-giveName err f spec g rs v = (fmap.fmap) (ValidationFailure err) <$> f spec g rs v
+giveName err f spec g rs v path = (fmap.fmap) (ValidationFailure err) <$> f spec g rs v path
 
 modifyName
   :: forall valErr schemaErr. (valErr -> schemaErr)
   -> ValidatorConstructor schemaErr [ValidationFailure valErr]
   -> ValidatorConstructor schemaErr [ValidationFailure schemaErr]
-modifyName failureHandler f spec g rs v = (fmap.fmap) modErr <$> f spec g rs v
+modifyName failureHandler f spec g rs v path = (fmap.fmap) modErr <$> f spec g rs v path
   where
     modErr :: ValidationFailure valErr -> ValidationFailure schemaErr
     modErr (ValidationFailure a b) = ValidationFailure (failureHandler a) b
@@ -63,7 +63,7 @@ modifyName failureHandler f spec g rs v = (fmap.fmap) modErr <$> f spec g rs v
 -- different than non-validator objects, because even if a non-validator object has
 -- a $ref" keyword it's not a valid reference and shouldn't be fetched.
 neverBuild :: ValidatorConstructor err [ValidationFailure err]
-neverBuild _ _ _ _ = Nothing
+neverBuild _ _ _ _ _ = Nothing
 
 --------------------------------------------------
 -- * Utils
