@@ -9,8 +9,10 @@
 
 module CustomSchema where
 
+import           Control.Applicative
 import           Data.Aeson
 import           Data.Maybe             (maybeToList)
+import           Data.Monoid
 import           Data.Text              (Text)
 import qualified Data.Text              as T
 

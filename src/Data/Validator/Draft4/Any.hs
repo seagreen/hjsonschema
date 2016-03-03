@@ -16,7 +16,7 @@ import           Data.Validator.Reference
 import           Import
 
 -- For GHCs before 7.10:
-import           Prelude hiding           (any)
+import           Prelude hiding           (any, elem)
 
 --------------------------------------------------
 -- * $ref
@@ -81,7 +81,6 @@ instance Arbitrary EnumVal where
 
 enumVal :: EnumVal -> Value -> Maybe (Failure ())
 enumVal (EnumVal vs) x
-  | null vs                   = Nothing
   | not (allUniqueValues' vs) = Nothing
   | x `elem` vs               = Nothing
   | otherwise                 =
