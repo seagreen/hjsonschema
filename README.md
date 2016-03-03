@@ -8,7 +8,7 @@ NOTE: You CANNOT use untrusted JSON data to make schemas. Schemas with circular 
 
 # Example
 
-See [here](https://github.com/seagreen/hjsonschema/blob/master/examples/Example.hs).
+See [here](https://github.com/seagreen/hjsonschema/blob/master/examples/Standard.hs).
 
 # Tests
 
