@@ -103,7 +103,8 @@ test-suite remote
                       , wai-app-static
                       , warp
 
-executable example
+test-suite example
+  type:                 exitcode-stdio-1.0
   hs-source-dirs:       examples
   main-is:              Main.hs
   other-modules:        CustomSchema

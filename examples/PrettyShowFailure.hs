@@ -18,17 +18,27 @@ failure = D4.Failure
   , D4._failureOffendingData    = AP.Pointer [AP.Token "0"]
   }
 
-subsetOfData :: Value
-subsetOfData =
-  -- This is the only really interesting part of this example. To resolve the
-  -- pointer to the part of the data that triggered the validation failure we
-  -- have to have hjsonpointer in our build-depends and use 'AP.resolve'.
+example :: IO ()
+example =
+  -- 'D4.Failure's contain the sequence of embedded validators that caused
+  -- the invalidation, the contents of the final validator in that sequence,
+  -- and a JSON Pointer to the subset of data that caused validation to fail.
+  --
+  -- They don't actually contain that subset of data, since it can be derived
+  -- from the original data and the JSON Pointer.
+  --
+  -- If you want to display the invalid subset of the data here's how you
+  -- resolve the JSON Pointer ('D4._failureOffendingData') against the
+  -- original data.
+  --
+  -- NOTE: You have to have hjsonpointer in your build-depends.
   case AP.resolve (D4._failureOffendingData failure) badData of
     Left _  -> error "Couldn't resolve pointer."
-    Right v -> v
+    Right _ -> putStrLn "Success." -- We could feed the 'Right' value into
+                                   -- 'msg' if we wanted to display it.
 
-example :: IO ()
-example = putStrLn . unlines $
+msg :: Value -> String
+msg subsetOfData = unlines
   [ "Invalid data. Here's the sequence of validators that caught it:"
   , ""
   , "  " <> show (D4._failureValidatorsCalled failure)
