@@ -58,7 +58,7 @@ example :: IO ()
 example =
   case validate schema badData of
     [] -> error "We validated bad data."
-    [FR.Failure OddLength _ _] -> putStrLn "Success."
+    [FR.Failure OddLength _ _] -> return () -- Success.
     _ -> error "We got a different failure than expected."
   where
     schema :: Schema

@@ -28,14 +28,15 @@ example =
   -- from the original data and the JSON Pointer.
   --
   -- If you want to display the invalid subset of the data here's how you
-  -- resolve the JSON Pointer ('D4._failureOffendingData') against the
-  -- original data.
+  -- resolve the JSON Pointer (which has the field name
+  -- 'D4._failureOffendingData') against the original data.
   --
   -- NOTE: You have to have hjsonpointer in your build-depends.
   case AP.resolve (D4._failureOffendingData failure) badData of
     Left _  -> error "Couldn't resolve pointer."
-    Right _ -> putStrLn "Success." -- We could feed the 'Right' value into
-                                   -- 'msg' if we wanted to display it.
+    Right _ -> return () -- Success. We could feed the 'Right' value into
+                         -- the otherwise unused 'msg' if we wanted to
+                         -- display it.
 
 msg :: Value -> String
 msg subsetOfData = unlines

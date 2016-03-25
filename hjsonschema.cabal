@@ -116,6 +116,8 @@ test-suite example
                       , base
                       , hjsonpointer
                       , hjsonschema
+                      , tasty
+                      , tasty-hunit
                       , text
                       , unordered-containers
                       , vector

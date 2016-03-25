@@ -38,7 +38,7 @@ example = do
 
   case validate badData of
     [] -> error "We validated bad data."
-    [D4.Failure D4.UniqueItems _ _] -> putStrLn "Success."
+    [D4.Failure D4.UniqueItems _ _] -> return () -- Success.
     _ -> error "We got a different failure than expected."
 
   where
