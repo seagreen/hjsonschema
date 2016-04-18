@@ -46,7 +46,7 @@ Will start an HTTP server temporarily on port 1234:
 
 ## Notes
 
-+ `draft4.json` is from commit # cc8ec81ce0abe2385ebd6c2a6f2d6deb646f874a [here](https://github.com/json-schema/json-schema).
++ `src/draft4.json` is from commit # cc8ec81ce0abe2385ebd6c2a6f2d6deb646f874a [here](https://github.com/json-schema/json-schema).
 
 ## Credits
 

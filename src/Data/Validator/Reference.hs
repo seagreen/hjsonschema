@@ -1,27 +1,42 @@
 
 module Data.Validator.Reference where
 
+-- | JSON Reference is described here:
+-- <http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03>
+--
+-- And is extended for JSON Schema here:
+-- <http://json-schema.org/latest/json-schema-core.html#anchor26>
+--
+-- Notes on where these functions are used:
+--
+--   * 'Data.JsonSchema.Fetch.includeSubschemas' uses 'updateResolutionScope'.
+--
+--   * 'Data.JsonSchema.Fetch.foldFunction' uses 'resolveReference'.
+--
+--   * 'Data.JsonSchema.Draft4.Internal' uses 'updateResolutionScope'
+--     throughout.
+--
+--   * 'Data.Validator.Draft4.Any.ref' uses 'resolveReference' and
+--     'resolveFragment'.
+
 import qualified Data.Aeson.Pointer     as P
 import qualified Data.Text              as T
 import           Data.Text.Encoding
-import           Network.HTTP.Types.URI
+import           Network.HTTP.Types.URI (urlDecode)
+import           System.FilePath        ((</>), dropFileName)
 
 import           Import
 
 type URIBase = Maybe Text
 type URIBaseAndFragment = (Maybe Text, Maybe Text)
 
-newResolutionScope :: URIBase -> Maybe Text -> URIBase
-newResolutionScope mScope idKeyword =
-  case idKeyword of
-    Just t -> fst . baseAndFragment $ resolveScopeAgainst mScope t
-    _      -> mScope
+updateResolutionScope :: URIBase -> Maybe Text -> URIBase
+updateResolutionScope mScope idKeyword
+  | Just t <- idKeyword = fst . baseAndFragment $ resolveScopeAgainst mScope t
+  | otherwise           = mScope
 
 resolveReference :: URIBase -> Text -> URIBaseAndFragment
 resolveReference mScope t = baseAndFragment $ resolveScopeAgainst mScope t
-
-isRemoteReference :: Text -> Bool
-isRemoteReference uri = "://" `T.isInfixOf` uri
 
 resolveFragment
   :: (FromJSON schema, ToJSON schema, Show schema)
@@ -38,8 +53,11 @@ resolveFragment (Just pointer) schema = do
     Success schema' -> Just schema'
 
 --------------------------------------------------
--- * Internal
+-- * Helpers
 --------------------------------------------------
+
+isRemoteReference :: Text -> Bool
+isRemoteReference = T.isInfixOf "://"
 
 baseAndFragment :: Text -> URIBaseAndFragment
 baseAndFragment = f . T.splitOn "#"
@@ -62,6 +80,12 @@ resolveScopeAgainst (Just scope) t
     -- but just in case a user leaves one in we want to be sure
     -- to cut it off before appending.
     smartAppend :: Text
-    smartAppend = case baseAndFragment scope of
-                    (Just base,_) -> base <> t
-                    _             -> t
+    smartAppend =
+      case baseAndFragment scope of
+        (Just base,_) ->
+          case T.unpack t of
+            -- We want "/foo" and "#/bar" to combine into
+            -- "/foo#/bar" not "/foo/#/bar".
+            '#':_ -> base <> t
+            _     -> T.pack (dropFileName (T.unpack base) </> T.unpack t)
+        _ -> t

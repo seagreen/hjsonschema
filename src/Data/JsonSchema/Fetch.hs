@@ -2,22 +2,34 @@
 
 module Data.JsonSchema.Fetch where
 
-import           Control.Exception        (SomeException(..), catch)
+import           Control.Arrow            (left)
+import           Control.Exception        (catch)
 import qualified Data.ByteString.Lazy     as LBS
+import qualified Data.ByteString          as BS
 import qualified Data.HashMap.Strict      as H
 import qualified Data.Text                as T
 import           Network.HTTP.Client
 
-import           Data.Validator.Reference (isRemoteReference,
-                                           newResolutionScope,
-                                           resolveReference)
+import           Data.Validator.Reference (resolveReference,
+                                           updateResolutionScope)
 import           Import
 
 -- For GHCs before 7.10:
 import           Prelude                  hiding (concat, sequence)
 
-data SchemaContext schema = SchemaContext
-  { _scURI    :: !(Maybe Text)
+--------------------------------------------------
+-- * Types
+--------------------------------------------------
+
+data Spec schema = Spec
+  { _ssEmbedded :: schema -> [schema]
+  , _ssGetId    :: schema -> Maybe Text
+  , _ssGetRef   :: schema -> Maybe Text
+  }
+
+data SchemaWithURI schema = SchemaWithURI
+  { _swSchema :: !schema
+  , _swURI    :: !(Maybe Text)
   -- ^ Must not include a URI fragment, e.g. use
   -- "http://example.com/foo" not "http://example.com/foo#bar".
   --
@@ -26,108 +38,136 @@ data SchemaContext schema = SchemaContext
   -- when resolving references contained in the schema.
 
   -- TODO: Make the no URI fragment requirement unnecessary.
-
-  , _scSchema :: !schema
   } deriving (Eq, Show)
 
 -- | Keys are URIs (without URI fragments).
 type URISchemaMap schema = HashMap Text schema
 
-data SchemaCache schema = SchemaCache
-  { _startingSchema :: !schema
+data ReferencedSchemas schema = ReferencedSchemas
+  { _rsStarting  :: !schema
   -- ^ Used to resolve relative references.
-  , _cachedSchemas  :: !(URISchemaMap schema)
+  , _rsSchemaMap :: !(URISchemaMap schema)
   } deriving (Eq, Show)
 
+--------------------------------------------------
+-- * Fetch via HTTP
+--------------------------------------------------
+
+data HTTPFailure
+  = HTTPParseFailure Text
+  | RequestFailure HttpException
+  deriving Show
+
 -- | Take a schema. Retrieve every document either it or its subschemas
--- include via the "$ref" keyword. Load a 'SchemaCache' out with them.
-fetchReferencedSchemas
+-- include via the "$ref" keyword.
+referencesViaHTTP'
   :: forall schema. FromJSON schema
-  => (schema -> [schema])
-  -> (schema -> Maybe Text)
-  -> (schema -> Maybe Text)
-  -> URISchemaMap schema
-  -> SchemaContext schema
-  -> IO (Either Text (SchemaCache schema))
-fetchReferencedSchemas embedded getId getRef cache sc = do
+  => Spec schema
+  -> SchemaWithURI schema
+  -> IO (Either HTTPFailure (ReferencedSchemas schema))
+referencesViaHTTP' spec sw = do
   manager <- newManager defaultManagerSettings
-  catch (Right <$> f manager) handler
+  let f = referencesMethodAgnostic (get manager) spec sw
+  catch (left HTTPParseFailure <$> f) handler
   where
-    f manager = fetchReferencedSchemas' embedded getId getRef
-                                        (simpleGET manager) cache sc
+    get :: Manager -> Text -> IO LBS.ByteString
+    get man url = do
+      request <- parseUrl (T.unpack url)
+      responseBody <$> httpLbs request man
 
-    handler :: SomeException -> IO (Either Text (SchemaCache schema))
-    handler e = pure . Left . T.pack . show $ e
+    handler
+      :: HttpException
+      -> IO (Either HTTPFailure (ReferencedSchemas schema))
+    handler = pure . Left . RequestFailure
 
--- | Based on 'Network.Http.Conduit.simpleHttp' from http-conduit.
-simpleGET :: Manager -> Text -> IO LBS.ByteString
-simpleGET man url = do
-  req <- parseUrl (T.unpack url)
-  responseBody <$> httpLbs req { requestHeaders = ("Connection", "close")
-                               : requestHeaders req
-                               } man
+--------------------------------------------------
+-- * Fetch via Filesystem
+--------------------------------------------------
+
+data FilesystemFailure
+  = FSParseFailure Text
+  | ReadFailure IOError
+  deriving Show
+
+referencesViaFilesystem'
+  :: forall schema. FromJSON schema
+  => Spec schema
+  -> SchemaWithURI schema
+  -> IO (Either FilesystemFailure (ReferencedSchemas schema))
+referencesViaFilesystem' spec sw = catch (left FSParseFailure <$> f) handler
+  where
+    f :: IO (Either Text (ReferencedSchemas schema))
+    f = referencesMethodAgnostic readFile' spec sw
+
+    readFile' :: Text -> IO LBS.ByteString
+    readFile' = fmap LBS.fromStrict . (BS.readFile . T.unpack)
+
+    handler
+      :: IOError
+      -> IO (Either FilesystemFailure (ReferencedSchemas schema))
+    handler = pure . Left . ReadFailure
+
+--------------------------------------------------
+-- * Method Agnostic Fetching Tools
+--------------------------------------------------
 
 -- | A version of 'fetchReferencedSchema's where the function to fetch
 -- schemas is provided by the user. This allows restrictions to be added,
 -- e.g. rejecting non-local URIs.
-fetchReferencedSchemas'
+referencesMethodAgnostic
   :: forall schema. FromJSON schema
-  => (schema -> [schema])
-  -> (schema -> Maybe Text)
-  -> (schema -> Maybe Text)
-  -> (Text -> IO LBS.ByteString)
+  => (Text -> IO LBS.ByteString)
+  -> Spec schema
+  -> SchemaWithURI schema
+  -> IO (Either Text (ReferencedSchemas schema))
+referencesMethodAgnostic fetchRef spec sw =
+  (fmap.fmap) (ReferencedSchemas (_swSchema sw))
+              (foldFunction fetchRef spec mempty sw)
+
+foldFunction
+  :: forall schema. FromJSON schema
+  => (Text -> IO LBS.ByteString)
+  -> Spec schema
   -> URISchemaMap schema
-  -> SchemaContext schema
-  -> IO (SchemaCache schema)
-fetchReferencedSchemas' embedded getId getRef fetchRef cache sc = do
-  let startingCache = case _scURI sc of
-                        Nothing  -> cache
-                        Just uri -> H.insert uri (_scSchema sc) cache
-  SchemaCache (_scSchema sc) <$> foldlM fetchRecursively
-                                        startingCache
-                                        (includeSubschemas embedded getId sc)
+  -> SchemaWithURI schema
+  -> IO (Either Text (URISchemaMap schema))
+foldFunction fetchRef spec@(Spec _ _ getRef) referenced sw =
+  foldlM f (Right referenced) (includeSubschemas spec sw)
   where
-    fetchRecursively
-      :: URISchemaMap schema
-      -> SchemaContext schema
-      -> IO (URISchemaMap schema)
-    fetchRecursively g (SchemaContext mUri schema) = do
-      -- Resolving the new scope is necessary here because of situations
-      -- like this:
-      --
-      -- {
-      --     "id": "http://localhost:1234/",
-      --     "items": {
-      --         "id": "folder/",
-      --         "items": {"$ref": "folderInteger.json"}
-      --     }
-      -- }
-      let scope = newResolutionScope mUri (getId schema)
-      case resolveReference scope <$> getRef schema of
-        Just (Just uri,_) ->
-          if not (isRemoteReference uri) || H.member uri g
-            then pure g
-            else do
-              bts <- fetchRef uri
-              case eitherDecode bts of
-                Left e     -> ioError (userError e)
-                Right schm -> _cachedSchemas <$>
-                  fetchReferencedSchemas' embedded getId getRef fetchRef
-                                          g (SchemaContext (Just uri) schm)
-        _ -> pure g
+    f :: Either Text (URISchemaMap schema)
+      -> SchemaWithURI schema
+      -> IO (Either Text (URISchemaMap schema))
+    f (Left e) _                            = pure (Left e)
+    f (Right g) (SchemaWithURI schema mUri) =
+      case newRef of
+        Nothing  -> pure (Right g)
+        Just uri -> do
+          bts <- fetchRef uri
+          case eitherDecode bts of
+            Left e     -> pure . Left . T.pack $ e
+            Right schm -> foldFunction fetchRef spec (H.insert uri schm g)
+                                       (SchemaWithURI schm (Just uri))
+      where
+        newRef :: Maybe Text
+        newRef
+          | Just (Just uri,_) <- resolveReference mUri <$> getRef schema
+            = case H.lookup uri g of
+                Nothing -> Just uri
+                Just _  -> Nothing
+          | otherwise = Nothing
 
 -- | Return the schema passed in as an argument, as well as every
 -- subschema contained within it.
 includeSubschemas
   :: forall schema.
-     (schema -> [schema])
-  -> (schema -> Maybe Text)
-  -> SchemaContext schema
-  -> [SchemaContext schema]
-includeSubschemas embedded getId (SchemaContext mUri schema) =
-  SchemaContext mUri schema
-  : (includeSubschemas embedded getId =<< subSchemas)
+     Spec schema
+  -> SchemaWithURI schema
+  -> [SchemaWithURI schema]
+includeSubschemas spec@(Spec embedded getId _) (SchemaWithURI schema mUri) =
+  SchemaWithURI schema mUri
+  : (includeSubschemas spec =<< subSchemas)
   where
-    subSchemas :: [SchemaContext schema]
-    subSchemas = SchemaContext (newResolutionScope mUri (getId schema))
-             <$> embedded schema
+    subSchemas :: [SchemaWithURI schema]
+    subSchemas =
+      (\a -> SchemaWithURI a (updateResolutionScope mUri (getId schema)))
+        <$> embedded schema

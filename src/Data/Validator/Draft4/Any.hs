@@ -12,7 +12,7 @@ import qualified Data.Set                 as S
 
 import           Data.Validator.Failure
 import           Data.Validator.Utils
-import           Data.Validator.Reference
+import           Data.Validator.Reference (resolveFragment, resolveReference)
 import           Import
 
 -- For GHCs before 7.10:

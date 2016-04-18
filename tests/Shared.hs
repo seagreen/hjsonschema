@@ -68,8 +68,8 @@ toTest :: SchemaTest -> TestTree
 toTest st =
   HU.testCase (T.unpack (_stDescription st)) $ do
     forM_ (_stCases st) $ \sc -> do
-      g <- assertRight =<< D4.fetchReferencedSchemas mempty (D4.SchemaContext Nothing (_stSchema st))
-      validate <- assertRight . D4.checkSchema g $ D4.SchemaContext Nothing (_stSchema st)
+      g <- assertRight =<< D4.referencesViaHTTP (D4.SchemaWithURI (_stSchema st) Nothing)
+      validate <- assertRight . D4.checkSchema g $ D4.SchemaWithURI (_stSchema st) Nothing
       let res = validate (_scData sc)
       if _scValid sc
         then assertValid   sc res
