@@ -3,7 +3,8 @@ module Data.Validator.Draft4.String where
 
 import           Data.Aeson
 import qualified Data.Text              as T
-import           Text.RegexPR
+import           Data.Text.Encoding     (encodeUtf8)
+import qualified Text.Regex.PCRE.Heavy  as RE
 
 import           Data.Validator.Failure
 import           Import
@@ -24,6 +25,8 @@ minLength n x
 
 patternVal :: Text -> Text -> Maybe (Failure ())
 patternVal t x =
-  case matchRegexPR (T.unpack t) (T.unpack x) of
-    Nothing -> Just (Failure () (toJSON t) mempty)
-    Just _  -> Nothing
+  case RE.compileM (encodeUtf8 t) mempty of
+    Left _   -> Just (Failure () (toJSON t) mempty)
+    Right re -> if x RE.=~ re
+                  then Nothing
+                  else Just (Failure () (toJSON t) mempty)

@@ -50,8 +50,8 @@ library
                       , hjsonpointer         >= 0.3    && < 0.4
                       , http-client          >= 0.4.9  && < 0.5
                       , http-types           >= 0.8    && < 0.10
+                      , pcre-heavy           >= 1.0    && < 1.1
                       , QuickCheck           >= 2.8.1  && < 2.9
-                      , regexpr              >= 0.5    && < 0.6
                       , scientific           >= 0.3    && < 0.4
                       , semigroups           >= 0.18.0 && < 0.19
                       , unordered-containers >= 0.2    && < 0.3

@@ -42,7 +42,7 @@ Will start an HTTP server temporarily on port 1234:
 
 ## Bad Parts
 
-+ Uses the [regexpr](https://hackage.haskell.org/package/regexpr-0.5.4) regular expression library for the "pattern" validator. It should use a library based on the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
++ Uses the [pcre-heavy](https://hackage.haskell.org/package/pcre-heavy) regular expression library for the "pattern" validator. It should use a library based on the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
 
 ## Notes
 

@@ -7,7 +7,8 @@ import           Data.Aeson
 import qualified Data.Aeson.Pointer     as P
 import qualified Data.HashMap.Strict    as H
 import qualified Data.Text              as T
-import           Text.RegexPR
+import           Data.Text.Encoding     (encodeUtf8)
+import qualified Text.Regex.PCRE.Heavy  as RE
 
 import           Data.Validator.Failure
 import           Import
@@ -126,9 +127,11 @@ patternAndUnmatched f patPropertiesHm x =
           -> schema
           -> [schema]
         checkKey k acc r subSchema =
-          case matchRegexPR (T.unpack r) (T.unpack k) of
-            Nothing -> acc
-            Just _  -> pure subSchema <> acc
+          case RE.compileM (encodeUtf8 r) mempty of
+            Left _   -> acc
+            Right re -> if k RE.=~ re
+                          then pure subSchema <> acc
+                          else acc
 
     runVals
       :: [Failure err]
