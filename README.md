@@ -12,19 +12,17 @@ See [here](https://github.com/seagreen/hjsonschema/blob/master/examples/Standard
 
 # Tests
 
-## Install
+Run all tests:
 
-`git submodule update --init`
+`stack test`
 
-## Run
+Run only local tests:
 
-Will run self-contained:
+`stack test hjsonschema:local`
 
-`cabal test local`
+Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP server on port 1234):
 
-Will start an HTTP server temporarily on port 1234:
-
-`cabal test remote`
+`stack test hjsonschema:remote`
 
 # Details
 
@@ -45,6 +43,8 @@ Will start an HTTP server temporarily on port 1234:
 + Uses the [pcre-heavy](https://hackage.haskell.org/package/pcre-heavy) regular expression library for the "pattern" validator. It should use a library based on the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
 
 ## Notes
+
++ `JSON-Schema-Test-Suite` is vendored from commit # aabcb3427745ade7a0b4d49ff016ad7eda8b898b [here](https://github.com/json-schema-org/JSON-Schema-Test-Suite).
 
 + `src/draft4.json` is from commit # cc8ec81ce0abe2385ebd6c2a6f2d6deb646f874a [here](https://github.com/json-schema/json-schema).
 
