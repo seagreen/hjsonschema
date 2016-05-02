@@ -1,6 +1,7 @@
 
 module Local.Filesystem where
 
+import           Control.Applicative
 import           Data.Aeson
 import           Data.Monoid
 import           Test.Tasty             (TestTree)

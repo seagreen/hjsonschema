@@ -30,6 +30,7 @@ module Data.JsonSchema.Draft4
   , draft4Spec
   ) where
 
+import           Control.Applicative
 import           Control.Arrow                   (left)
 import           Data.Aeson
 import qualified Data.ByteString.Lazy            as LBS
