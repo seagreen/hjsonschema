@@ -27,8 +27,8 @@ readFileExceptions :: IO ()
 readFileExceptions = do
   res <- referencesViaFilesystem (SchemaWithURI schema Nothing)
   case res of
-    Left (ReadFailure _) -> pure ()
-    a                    -> error (msg <> show a)
+    Left (FSReadFailure _) -> pure ()
+    a                      -> error (msg <> show a)
   where
     schema :: Schema
     schema = emptySchema { _schemaRef = Just "does-not-exist.json" }

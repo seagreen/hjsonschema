@@ -54,8 +54,8 @@ data ReferencedSchemas schema = ReferencedSchemas
 --------------------------------------------------
 
 data HTTPFailure
-  = HTTPParseFailure Text
-  | RequestFailure HttpException
+  = HTTPParseFailure   Text
+  | HTTPRequestFailure HttpException
   deriving Show
 
 -- | Take a schema. Retrieve every document either it or its subschemas
@@ -78,7 +78,7 @@ referencesViaHTTP' spec sw = do
     handler
       :: HttpException
       -> IO (Either HTTPFailure (ReferencedSchemas schema))
-    handler = pure . Left . RequestFailure
+    handler = pure . Left . HTTPRequestFailure
 
 --------------------------------------------------
 -- * Fetch via Filesystem
@@ -86,7 +86,7 @@ referencesViaHTTP' spec sw = do
 
 data FilesystemFailure
   = FSParseFailure Text
-  | ReadFailure IOError
+  | FSReadFailure  IOError
   deriving Show
 
 referencesViaFilesystem'
@@ -100,12 +100,12 @@ referencesViaFilesystem' spec sw = catch (left FSParseFailure <$> f) handler
     f = referencesMethodAgnostic readFile' spec sw
 
     readFile' :: Text -> IO LBS.ByteString
-    readFile' = fmap LBS.fromStrict . (BS.readFile . T.unpack)
+    readFile' = fmap LBS.fromStrict . BS.readFile . T.unpack
 
     handler
       :: IOError
       -> IO (Either FilesystemFailure (ReferencedSchemas schema))
-    handler = pure . Left . ReadFailure
+    handler = pure . Left . FSReadFailure
 
 --------------------------------------------------
 -- * Method Agnostic Fetching Tools

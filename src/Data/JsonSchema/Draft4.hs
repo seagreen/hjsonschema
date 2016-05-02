@@ -49,9 +49,9 @@ import           Data.JsonSchema.Fetch           (FilesystemFailure(..),
 import qualified Data.JsonSchema.Fetch           as FE
 
 data HTTPValidationFailure
-  = HVRequest    HTTPFailure
-  | HVSchema     (NonEmpty Failure)
-  | HVData       (NonEmpty Failure)
+  = HVRequest HTTPFailure
+  | HVSchema  (NonEmpty Failure)
+  | HVData    (NonEmpty Failure)
   deriving Show
 
 fetchHTTPAndValidate
@@ -72,9 +72,9 @@ fetchHTTPAndValidate sw v = do
                    Just failures -> Left (HVData failures)
 
 data FilesystemValidationFailure
-  = FVFilesystem FilesystemFailure
-  | FVSchema     (NonEmpty Failure)
-  | FVData       (NonEmpty Failure)
+  = FVRead   FilesystemFailure
+  | FVSchema (NonEmpty Failure)
+  | FVData   (NonEmpty Failure)
   deriving Show
 
 fetchFilesystemAndValidate
@@ -83,7 +83,7 @@ fetchFilesystemAndValidate
   -> IO (Either FilesystemValidationFailure ())
 fetchFilesystemAndValidate sw v = do
   res <- referencesViaFilesystem sw
-  pure (g =<< f =<< left FVFilesystem res)
+  pure (g =<< f =<< left FVRead res)
   where
     f :: ReferencedSchemas Schema
       -> Either FilesystemValidationFailure (Value -> [Failure])
