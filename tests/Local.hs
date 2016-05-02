@@ -7,8 +7,14 @@ import           Data.Aeson
 import           Data.List              (isSuffixOf)
 import           Data.Monoid
 import           System.Directory       (getDirectoryContents)
-import           Test.Tasty             (defaultMain, testGroup)
+import           Test.Tasty             (TestTree, defaultMain, testGroup)
+import qualified Test.Tasty.HUnit       as HU
 import           Test.Tasty.QuickCheck  (testProperty)
+
+-- Examples
+import qualified CustomSchema           as C
+import qualified PrettyShowFailure      as P
+import qualified Standard               as S
 
 import           Data.JsonSchema.Draft4
 import           Local.Failure          (correctPaths)
@@ -24,11 +30,23 @@ main = do
   filenames <- filter isLocal . filter (".json" `isSuffixOf`) <$> getDirectoryContents dir
   ts <- readSchemaTests dir filenames
   defaultMain . testGroup "Tests not requiring an HTTP server" $
-      testProperty "Invert schemas through JSON without change" invertSchema
+      testGroup "Check that examples compile" exampleTests
+    : testGroup "QuickCheck tests" quickCheckTests
     : testGroup "Report the path to invalid data correctly" correctPaths
     : testGroup "Test the referencesViaFilesystem function" fetchFromFilesystem
     : testGroup "Test the Reference module" referenceTests
     : fmap toTest ts
 
-invertSchema :: Schema -> Bool
-invertSchema a = Just a == decode (encode a)
+quickCheckTests :: [TestTree]
+quickCheckTests =
+  [testProperty "Invert schemas through JSON without change" invertSchema]
+  where
+    invertSchema :: Schema -> Bool
+    invertSchema a = Just a == decode (encode a)
+
+exampleTests :: [TestTree]
+exampleTests =
+  [ HU.testCase "Standard Example" S.example
+  , HU.testCase "PrettyShowFailure Example" P.example
+  , HU.testCase "CustomSchema Example" C.example
+  ]

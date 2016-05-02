@@ -61,11 +61,17 @@ library
 test-suite local
   type:                 exitcode-stdio-1.0
   hs-source-dirs:       tests
+                        examples
   main-is:              Local.hs
   other-modules:        Local.Failure
                       , Local.Filesystem
                       , Local.Reference
                       , Shared
+                      -- from ./examples:
+                      , CustomSchema
+                      , PrettyShowFailure
+                      , Standard
+
   default-language:     Haskell2010
   ghc-options:          -Wall -fno-warn-orphans
   default-extensions:   OverloadedStrings
@@ -107,24 +113,6 @@ test-suite remote
                       , tasty-hunit
                       , wai-app-static
                       , warp
-
-test-suite example
-  type:                 exitcode-stdio-1.0
-  hs-source-dirs:       examples
-  main-is:              Main.hs
-  other-modules:        CustomSchema
-                      , PrettyShowFailure
-                      , Standard
-  default-language:     Haskell2010
-  ghc-options:          -Wall
-  build-depends:        aeson
-                      , base
-                      , hjsonpointer
-                      , hjsonschema
-                      , tasty
-                      , tasty-hunit
-                      , text
-                      , vector
 
 source-repository head
   type:               git
