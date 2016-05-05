@@ -18,10 +18,10 @@ fetchFromFilesystem =
 
   , HU.testCase
       "Relative reference to local file"
-      (resolve "tests/Local/schema.json")
+      (resolve "test/Local/schema.json")
   , HU.testCase
       "Chained relative references to local files"
-      (resolve "./tests/Local/schema-with-ref.json")
+      (resolve "./test/Local/schema-with-ref.json")
   ]
 
 readFileExceptions :: IO ()
