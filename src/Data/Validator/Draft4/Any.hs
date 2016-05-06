@@ -84,7 +84,7 @@ enumVal (EnumVal vs) x
   | not (allUniqueValues' vs) = Nothing
   | x `elem` vs               = Nothing
   | otherwise                 =
-    Just $ Failure () (toJSON (NonEmpty' vs)) mempty
+    Just $ Invalid () (toJSON (NonEmpty' vs)) mempty
 
 --------------------------------------------------
 -- * type
@@ -114,7 +114,7 @@ typeVal (TypeValArray ts) x = isJsonType x ts
 
 isJsonType :: Value -> Set Text -> Maybe (Failure ())
 isJsonType x ts
-  | S.null (S.intersection okTypes ts) = Just (Failure () (toJSON ts) mempty)
+  | S.null (S.intersection okTypes ts) = Just (Invalid () (toJSON ts) mempty)
   | otherwise                          = Nothing
   where
     okTypes :: Set Text
@@ -149,7 +149,7 @@ anyOf
   -> Maybe (Failure ())
 anyOf f subSchemas x
   | any null (flip f x <$> subSchemas) = Nothing
-  | otherwise = Just $ Failure () (toJSON (NonEmpty' subSchemas)) mempty
+  | otherwise = Just $ Invalid () (toJSON (NonEmpty' subSchemas)) mempty
 
 oneOf
   :: forall err schema. ToJSON schema
@@ -159,7 +159,7 @@ oneOf
   -> Maybe (Failure ())
 oneOf f subSchemas x
   | length successes == 1 = Nothing
-  | otherwise             = Just $ Failure ()
+  | otherwise             = Just $ Invalid ()
                                            (toJSON (NonEmpty' subSchemas))
                                            mempty
   where
@@ -174,5 +174,5 @@ notVal
   -> Maybe (Failure ())
 notVal f schema x =
   case f schema x of
-    [] -> Just (Failure () (toJSON schema) mempty)
+    [] -> Just (Invalid () (toJSON schema) mempty)
     _  -> Nothing

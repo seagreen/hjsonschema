@@ -15,20 +15,20 @@ import           Import
 maxItems :: Int -> Vector Value -> Maybe (Failure ())
 maxItems n xs
   | n < 0           = Nothing
-  | V.length xs > n = Just (Failure () (toJSON n) mempty)
+  | V.length xs > n = Just (Invalid () (toJSON n) mempty)
   | otherwise       = Nothing
 
 -- | The spec requires "minItems" to be non-negative.
 minItems :: Int -> Vector Value -> Maybe (Failure ())
 minItems n xs
   | n < 0           = Nothing
-  | V.length xs < n = Just (Failure () (toJSON n) mempty)
+  | V.length xs < n = Just (Invalid () (toJSON n) mempty)
   | otherwise       = Nothing
 
 uniqueItems :: Bool -> Vector Value -> Maybe (Failure ())
 uniqueItems True xs
   | allUniqueValues xs = Nothing
-  | otherwise          = Just (Failure () (Bool True) mempty)
+  | otherwise          = Just (Invalid () (Bool True) mempty)
 uniqueItems False _ = Nothing
 
 --------------------------------------------------
@@ -107,7 +107,7 @@ items f mAdditional (ItemsArray subSchemas) xs = itemFailures
         correctIndexes
           :: Failure (AdditionalItemsFailure err)
           -> Failure (AdditionalItemsFailure err)
-        correctIndexes (Failure a b c) = Failure a b (fixIndex c)
+        correctIndexes (Invalid a b c) = Invalid a b (fixIndex c)
           where
             fixIndex :: P.Pointer -> P.Pointer
             fixIndex (P.Pointer (tok:toks)) =
@@ -157,7 +157,7 @@ additionalItems
   -> [Failure (AdditionalItemsFailure err)]
 additionalItems _ (AdditionalBool b) xs
   | b               = mempty
-  | V.length xs > 0 = pure (Failure AdditionalBoolFailure (Bool b) mempty)
+  | V.length xs > 0 = pure (Invalid AdditionalBoolFailure (Bool b) mempty)
   | otherwise       = mempty
 additionalItems f (AdditionalObject subSchema) xs =
   zip [0..] (V.toList xs) >>= g

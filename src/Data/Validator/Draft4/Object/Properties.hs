@@ -179,7 +179,7 @@ additionalProperties
   -> HashMap Text Value
   -> [Failure (AdditionalPropertiesFailure err)]
 additionalProperties _ (AdditionalPropertiesBool False) x
-  | H.size x > 0 = pure $ Failure APBoolFailure (Bool False) mempty
+  | H.size x > 0 = pure $ Invalid APBoolFailure (Bool False) mempty
   | otherwise    = mempty
 additionalProperties _ (AdditionalPropertiesBool True) _ = mempty
 additionalProperties f (AdditionalPropertiesObject schema) x = H.toList x >>= g

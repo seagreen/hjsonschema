@@ -1,24 +1,9 @@
 
 module Data.JsonSchema.Draft4.Failure where
 
-import qualified Data.Aeson.Pointer     as P
-
 import qualified Data.Validator.Failure as FR
-import           Import
 
--- | A version of 'FR.Failure' specialized for JSON Schema Draft 4.
-data Failure = Failure
-  -- NOTE: We use a data type here instead of a newtype to provide a cleaner
-  -- API for those importing only 'Data.JsonSchema.Draft4' (which should be
-  -- the vast majority of users). Downsides: slower and hacky. I'd appreciate
-  -- feedback on this.
-  { _failureValidatorsCalled :: !ValidatorChain
-  , _failureFinalValidator   :: !Value
-  , _failureOffendingData    :: !P.Pointer
-  } deriving (Eq, Show)
-
-specializeForDraft4 :: FR.Failure ValidatorChain -> Failure
-specializeForDraft4 (FR.Failure a b c) = Failure a b c
+type Invalid = FR.Failure ValidatorChain
 
 data ValidatorChain
   = MultipleOf

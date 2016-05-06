@@ -75,7 +75,7 @@ toTest st =
         then assertValid   sc res
         else assertInvalid sc res
 
-assertValid :: SchemaTestCase -> [D4.Failure] -> HU.Assertion
+assertValid :: SchemaTestCase -> [D4.Invalid] -> HU.Assertion
 assertValid _ [] = pure ()
 assertValid sc errs =
   HU.assertFailure $ unlines
@@ -85,7 +85,7 @@ assertValid sc errs =
     , "    Validation failures: " <> show errs
     ]
 
-assertInvalid :: SchemaTestCase -> [D4.Failure] -> HU.Assertion
+assertInvalid :: SchemaTestCase -> [D4.Invalid] -> HU.Assertion
 assertInvalid sc [] =
   HU.assertFailure $ unlines
     [ "    Validated invalid data"

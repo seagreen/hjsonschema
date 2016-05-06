@@ -25,14 +25,14 @@ import           Prelude                                 hiding (all, concat,
 maxProperties :: Int -> HashMap Text Value -> Maybe (Failure ())
 maxProperties n x
   | n < 0        = Nothing
-  | H.size x > n = Just (Failure () (toJSON n) mempty)
+  | H.size x > n = Just (Invalid () (toJSON n) mempty)
   | otherwise    = Nothing
 
 -- | The spec requires "minProperties" to be non-negative.
 minProperties :: Int -> HashMap Text Value -> Maybe (Failure ())
 minProperties n x
   | n < 0        = Nothing
-  | H.size x < n = Just (Failure () (toJSON n) mempty)
+  | H.size x < n = Just (Invalid () (toJSON n) mempty)
   | otherwise    = Nothing
 
 --------------------------------------------------
@@ -80,7 +80,7 @@ required (Required ts) x
   -- instead of specialized versions.
   | S.null ts                  = Nothing
   | H.null (H.difference hm x) = Nothing
-  | otherwise                  = Just (Failure () (toJSON ts) mempty)
+  | otherwise                  = Just (Invalid () (toJSON ts) mempty)
   where
     hm :: HashMap Text Bool
     hm = foldl (\b a -> H.insert a True b) mempty ts
@@ -138,7 +138,7 @@ dependencies f hm x = concat . fmap (uncurry g) . H.toList $ hm
       | otherwise    = mempty
     g k (PropertyDependency ts)
       | H.member k x && not allPresent =
-        pure $ Failure PropertyDependencyFailure
+        pure $ Invalid PropertyDependencyFailure
                        (toJSON (H.singleton k ts))
                        mempty
       | otherwise = mempty

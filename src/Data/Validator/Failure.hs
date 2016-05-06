@@ -23,20 +23,20 @@ import           Prelude            hiding (concat, sequence)
 -- by the validators it uses into a single error sum type for that schema.
 -- The schema's validate function will return a 'ValidationFailure' with
 -- that sum type as its type argument.
-data Failure err = Failure
-  { _failureValidatorsCalled :: !err
-  , _failureFinalValidator   :: !Value
-  , _failureOffendingData    :: !P.Pointer
+data Failure err = Invalid
+  { _invalidValidatorsCalled :: !err
+  , _invalidFinalValidator   :: !Value
+  , _invalidOffendingData    :: !P.Pointer
   } deriving (Eq, Show)
 
 setFailure :: b -> Failure a -> Failure b
-setFailure e (Failure _ a b) = Failure e a b
+setFailure e (Invalid _ a b) = Invalid e a b
 
 modFailure :: (a -> b) -> Failure a -> Failure b
-modFailure f v@(Failure a _ _) = v { _failureValidatorsCalled = f a }
+modFailure f v@(Invalid a _ _) = v { _invalidValidatorsCalled = f a }
 
 addToPath :: P.Token -> Failure a -> Failure a
-addToPath tok v@(Failure _ _ a) = v { _failureOffendingData = addToken a }
+addToPath tok v@(Invalid _ _ a) = v { _invalidOffendingData = addToken a }
   where
     addToken :: P.Pointer -> P.Pointer
     addToken (P.Pointer ts) = P.Pointer (ts <> pure tok)

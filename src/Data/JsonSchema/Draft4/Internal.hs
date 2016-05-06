@@ -71,28 +71,15 @@ embedded schema = concat
     checkDependency (OB.SchemaDependency s)   = Just s
 
 --------------------------------------------------
--- * Validation (Exported from 'Data.JsonSchema.Draft4')
+-- * Validation (Main internal functions)
 --------------------------------------------------
 
--- | In normal situations just use 'checkSchema', which is a combination of
--- 'schemaValidity' and 'runValidate'.
 runValidate
   :: ReferencedSchemas Schema
   -> SchemaWithURI Schema
   -> Value
-  -> [Failure]
-runValidate = (fmap.fmap.fmap.fmap) specializeForDraft4 validateAny
-
---------------------------------------------------
--- * Validation (Main internal functions)
---------------------------------------------------
-
-validateAny
-  :: ReferencedSchemas Schema
-  -> SchemaWithURI Schema
-  -> Value
-  -> [FR.Failure ValidatorChain]
-validateAny referenced sw x = concat
+  -> [Invalid]
+runValidate referenced sw x = concat
   [ f _schemaEnum  (setFailure Enum)          (fmap maybeToList . AN.enumVal)
   , f _schemaType  (setFailure TypeValidator) (fmap maybeToList . AN.typeVal)
   , f _schemaAllOf (modFailure AllOf)         (AN.allOf recurse)
@@ -102,7 +89,7 @@ validateAny referenced sw x = concat
   , refFailures
   ] <> specificValidators
   where
-    specificValidators :: [FR.Failure ValidatorChain]
+    specificValidators :: [Invalid]
     specificValidators =
       case x of
         Number y -> validateNumber (_swSchema sw) y
@@ -120,16 +107,16 @@ validateAny referenced sw x = concat
     --
     -- [1] A list of errors wrapped in a 'Maybe' where 'Nothing' represents
     -- if resolving the reference itself failed.
-    refFailures :: [FR.Failure ValidatorChain]
+    refFailures :: [Invalid]
     refFailures =
       case _schemaRef (_swSchema sw) of
         Nothing        -> mempty
         Just reference ->
-          maybe [FR.Failure RefResolution (toJSON reference) mempty]
+          maybe [FR.Invalid RefResolution (toJSON reference) mempty]
                 (fmap (modFailure Ref))
                 $ AN.ref scope
                          getReference
-                         (\a b -> validateAny referenced (SchemaWithURI b a))
+                         (\a b -> runValidate referenced (SchemaWithURI b a))
                          reference
                          x
       where
@@ -143,7 +130,7 @@ validateAny referenced sw x = concat
 validateString
   :: Schema
   -> Text
-  -> [FR.Failure ValidatorChain]
+  -> [Invalid]
 validateString schema x = concat
   [ f _schemaMaxLength (setFailure MaxLength)        (fmap maybeToList . ST.maxLength)
   , f _schemaMinLength (setFailure MinLength)        (fmap maybeToList . ST.minLength)
@@ -155,7 +142,7 @@ validateString schema x = concat
 validateNumber
   :: Schema
   -> Scientific
-  -> [FR.Failure ValidatorChain]
+  -> [Invalid]
 validateNumber schema x = concat
   [ f _schemaMultipleOf (setFailure MultipleOf) (fmap maybeToList . NU.multipleOf)
   , f _schemaMaximum
@@ -182,7 +169,7 @@ validateArray
   :: ReferencedSchemas Schema
   -> SchemaWithURI Schema
   -> Vector Value
-  -> [FR.Failure ValidatorChain]
+  -> [Invalid]
 validateArray referenced (SchemaWithURI schema mUri) x = concat
   [ f _schemaMaxItems    (setFailure MaxItems)    (fmap maybeToList . AR.maxItems)
   , f _schemaMinItems    (setFailure MinItems)    (fmap maybeToList . AR.minItems)
@@ -204,7 +191,7 @@ validateObject
   :: ReferencedSchemas Schema
   -> SchemaWithURI Schema
   -> HashMap Text Value
-  -> [FR.Failure ValidatorChain]
+  -> [Invalid]
 validateObject referenced (SchemaWithURI schema mUri) x = concat
   [ f _schemaMaxProperties (setFailure MaxProperties) (fmap maybeToList . OB.maxProperties)
   , f _schemaMinProperties (setFailure MinProperties) (fmap maybeToList . OB.minProperties)
@@ -262,9 +249,9 @@ descendNextLevel
   -> SchemaWithURI Schema
   -> Schema
   -> Value
-  -> [FR.Failure ValidatorChain]
+  -> [Invalid]
 descendNextLevel referenced (SchemaWithURI schema mUri) =
-  validateAny referenced . flip SchemaWithURI scope
+  runValidate referenced . flip SchemaWithURI scope
   where
     scope :: Maybe Text
     scope = updateResolutionScope mUri (_schemaId schema)
@@ -273,8 +260,8 @@ runSingle
   :: Schema
   -> dta
   -> (Schema -> Maybe val)
-  -> (err -> FR.Failure ValidatorChain)
+  -> (err -> Invalid)
   -> (val -> dta -> [err])
-  -> [FR.Failure ValidatorChain]
+  -> [Invalid]
 runSingle schema dta field modifyError validate =
   maybe mempty (\val -> modifyError <$> validate val dta) (field schema)

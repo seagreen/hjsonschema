@@ -20,7 +20,8 @@ module Data.JsonSchema.Draft4
   , referencesViaFilesystem
 
     -- * Failure
-  , Failure(..)
+  , Invalid
+  , FR.Failure(..)
   , ValidatorChain(..)
 
     -- * Other Draft 4 things exported just in case
@@ -40,7 +41,7 @@ import           Data.List.NonEmpty              (NonEmpty)
 import qualified Data.List.NonEmpty              as N
 import           Data.Maybe                      (fromMaybe)
 
-import           Data.JsonSchema.Draft4.Failure
+import           Data.JsonSchema.Draft4.Failure  (Invalid, ValidatorChain(..))
 import qualified Data.JsonSchema.Draft4.Internal as IN
 import           Data.JsonSchema.Draft4.Schema
 import           Data.JsonSchema.Fetch           (FilesystemFailure(..),
@@ -48,11 +49,12 @@ import           Data.JsonSchema.Fetch           (FilesystemFailure(..),
                                                   ReferencedSchemas(..),
                                                   SchemaWithURI(..))
 import qualified Data.JsonSchema.Fetch           as FE
+import qualified Data.Validator.Failure          as FR
 
 data HTTPValidationFailure
   = HVRequest HTTPFailure
-  | HVSchema  (NonEmpty Failure)
-  | HVData    (NonEmpty Failure)
+  | HVSchema  (NonEmpty Invalid)
+  | HVData    (NonEmpty Invalid)
   deriving Show
 
 fetchHTTPAndValidate
@@ -64,18 +66,18 @@ fetchHTTPAndValidate sw v = do
   pure (g =<< f =<< left HVRequest res)
   where
     f :: ReferencedSchemas Schema
-      -> Either HTTPValidationFailure (Value -> [Failure])
+      -> Either HTTPValidationFailure (Value -> [Invalid])
     f references = left HVSchema (checkSchema references sw)
 
-    g :: (Value -> [Failure]) -> Either HTTPValidationFailure ()
+    g :: (Value -> [Invalid]) -> Either HTTPValidationFailure ()
     g validate = case N.nonEmpty (validate v) of
                    Nothing       -> Right ()
                    Just failures -> Left (HVData failures)
 
 data FilesystemValidationFailure
   = FVRead   FilesystemFailure
-  | FVSchema (NonEmpty Failure)
-  | FVData   (NonEmpty Failure)
+  | FVSchema (NonEmpty Invalid)
+  | FVData   (NonEmpty Invalid)
   deriving Show
 
 fetchFilesystemAndValidate
@@ -87,10 +89,10 @@ fetchFilesystemAndValidate sw v = do
   pure (g =<< f =<< left FVRead res)
   where
     f :: ReferencedSchemas Schema
-      -> Either FilesystemValidationFailure (Value -> [Failure])
+      -> Either FilesystemValidationFailure (Value -> [Invalid])
     f references = left FVSchema (checkSchema references sw)
 
-    g :: (Value -> [Failure]) -> Either FilesystemValidationFailure ()
+    g :: (Value -> [Invalid]) -> Either FilesystemValidationFailure ()
     g validate = case N.nonEmpty (validate v) of
                    Nothing       -> Right ()
                    Just failures -> Left (FVData failures)
@@ -99,7 +101,7 @@ fetchFilesystemAndValidate sw v = do
 checkSchema
   :: ReferencedSchemas Schema
   -> SchemaWithURI Schema
-  -> Either (NonEmpty Failure) (Value -> [Failure])
+  -> Either (NonEmpty Invalid) (Value -> [Invalid])
 checkSchema referenced schemaWithURI =
   case N.nonEmpty . schemaValidity . _swSchema $ schemaWithURI of
     Nothing       -> Right (IN.runValidate referenced schemaWithURI)
@@ -120,7 +122,7 @@ referencesViaFilesystem = FE.referencesViaFilesystem' draft4Spec
 
 -- | In normal situations just use 'checkSchema', which is a combination of
 -- 'schemaValidity' and 'runValidate'.
-schemaValidity :: Schema -> [Failure]
+schemaValidity :: Schema -> [Invalid]
 schemaValidity = IN.runValidate referenced (SchemaWithURI d4 Nothing) . toJSON
   where
     d4 :: Schema

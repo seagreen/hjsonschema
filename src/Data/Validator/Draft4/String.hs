@@ -13,20 +13,20 @@ import           Import
 maxLength :: Int -> Text -> Maybe (Failure ())
 maxLength n x
   | n <= 0         = Nothing
-  | T.length x > n = Just (Failure () (toJSON n) mempty)
+  | T.length x > n = Just (Invalid () (toJSON n) mempty)
   | otherwise      = Nothing
 
 -- | The spec requires "minLength" to be non-negative.
 minLength :: Int -> Text -> Maybe (Failure ())
 minLength n x
   | n <= 0         = Nothing
-  | T.length x < n = Just (Failure () (toJSON n) mempty)
+  | T.length x < n = Just (Invalid () (toJSON n) mempty)
   | otherwise      = Nothing
 
 patternVal :: Text -> Text -> Maybe (Failure ())
 patternVal t x =
   case RE.compileM (encodeUtf8 t) mempty of
-    Left _   -> Just (Failure () (toJSON t) mempty)
+    Left _   -> Just (Invalid () (toJSON t) mempty)
     Right re -> if x RE.=~ re
                   then Nothing
-                  else Just (Failure () (toJSON t) mempty)
+                  else Just (Invalid () (toJSON t) mempty)

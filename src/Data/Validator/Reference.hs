@@ -1,6 +1,4 @@
 
-module Data.Validator.Reference where
-
 -- | JSON Reference is described here:
 -- <http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03>
 --
@@ -18,6 +16,8 @@ module Data.Validator.Reference where
 --
 --   * 'Data.Validator.Draft4.Any.ref' uses 'resolveReference' and
 --     'resolveFragment'.
+
+module Data.Validator.Reference where
 
 import qualified Data.Aeson.Pointer     as P
 import qualified Data.Text              as T

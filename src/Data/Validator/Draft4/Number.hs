@@ -11,7 +11,7 @@ import           Import
 multipleOf :: Scientific -> Scientific -> Maybe (Failure ())
 multipleOf n x
   | n <= 0          = Nothing
-  | x `mod'` n /= 0 = Just (Failure () (toJSON n) mempty)
+  | x `mod'` n /= 0 = Just (Invalid () (toJSON n) mempty)
   | otherwise       = Nothing
 
 data MaximumFailure
@@ -25,7 +25,7 @@ maximumVal
   -> Scientific
   -> Maybe (Failure MaximumFailure)
 maximumVal exclusiveMaximum n x
-  | x `greaterThan` n = Just (Failure err (toJSON n) mempty)
+  | x `greaterThan` n = Just (Invalid err (toJSON n) mempty)
   | otherwise         = Nothing
   where
     (greaterThan, err) = if exclusiveMaximum
@@ -43,7 +43,7 @@ minimumVal
   -> Scientific
   -> Maybe (Failure MinimumFailure)
 minimumVal exclusiveMinimum n x
-  | x `lessThan` n = Just (Failure err (toJSON n) mempty)
+  | x `lessThan` n = Just (Invalid err (toJSON n) mempty)
   | otherwise      = Nothing
   where
     (lessThan, err) = if exclusiveMinimum

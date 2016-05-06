@@ -19,7 +19,7 @@ correctPaths =
 itemsObject :: IO ()
 itemsObject = HU.assertEqual "Path to invalid data"
                              (P.Pointer [P.Token "0"])
-                             (_failureOffendingData failure)
+                             (_invalidOffendingData failure)
   where
     [failure] = runValidate (ReferencedSchemas schema mempty)
                             sw (toJSON [[True, True]])
@@ -38,7 +38,7 @@ itemsObject = HU.assertEqual "Path to invalid data"
 itemsArray :: IO ()
 itemsArray = HU.assertEqual "Path to invalid data"
                             (P.Pointer [P.Token "0"])
-                            (_failureOffendingData failure)
+                            (_invalidOffendingData failure)
   where
     [failure] = runValidate (ReferencedSchemas schema mempty)
                             sw (toJSON [[True, True]])

@@ -23,7 +23,7 @@ import qualified Data.Validator.Failure as FR
 oddLength :: Bool -> Text -> Maybe (FR.Failure () )
 oddLength b t
   | b == odd (T.length t) = Nothing
-  | otherwise             = Just (FR.Failure () (Bool b) mempty)
+  | otherwise             = Just (FR.Invalid () (Bool b) mempty)
 
 data CustomError
   = MaxLength
@@ -58,7 +58,7 @@ example :: IO ()
 example =
   case validate schema badData of
     [] -> error "We validated bad data."
-    [FR.Failure OddLength _ _] -> return () -- Success.
+    [FR.Invalid OddLength _ _] -> return () -- Success.
     _ -> error "We got a different failure than expected."
   where
     schema :: Schema
