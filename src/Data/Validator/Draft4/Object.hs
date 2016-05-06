@@ -89,9 +89,9 @@ required (Required ts) x
 -- * dependencies
 --------------------------------------------------
 
-data DependencyFailure err
-  = SchemaDependencyFailure err
-  | PropertyDependencyFailure
+data DependencyInvalid err
+  = SchemaDependencyInvalid err
+  | PropertyDependencyInvalid
   deriving (Eq, Show)
 
 data Dependency schema
@@ -128,17 +128,17 @@ dependencies
   :: forall err schema. (schema -> Value -> [Failure err])
   -> HashMap Text (Dependency schema)
   -> HashMap Text Value
-  -> [Failure (DependencyFailure err)]
+  -> [Failure (DependencyInvalid err)]
 dependencies f hm x = concat . fmap (uncurry g) . H.toList $ hm
   where
-    g :: Text -> Dependency schema -> [Failure (DependencyFailure err)]
+    g :: Text -> Dependency schema -> [Failure (DependencyInvalid err)]
     g k (SchemaDependency schema)
       | H.member k x =
-        modFailure SchemaDependencyFailure <$> f schema (Object x)
+        modFailure SchemaDependencyInvalid <$> f schema (Object x)
       | otherwise    = mempty
     g k (PropertyDependency ts)
       | H.member k x && not allPresent =
-        pure $ Invalid PropertyDependencyFailure
+        pure $ Invalid PropertyDependencyInvalid
                        (toJSON (H.singleton k ts))
                        mempty
       | otherwise = mempty

@@ -14,7 +14,7 @@ multipleOf n x
   | x `mod'` n /= 0 = Just (Invalid () (toJSON n) mempty)
   | otherwise       = Nothing
 
-data MaximumFailure
+data MaximumInvalid
   = Maximum
   | ExclusiveMaximum
   deriving (Eq, Show)
@@ -23,7 +23,7 @@ maximumVal
   :: Bool
   -> Scientific
   -> Scientific
-  -> Maybe (Failure MaximumFailure)
+  -> Maybe (Failure MaximumInvalid)
 maximumVal exclusiveMaximum n x
   | x `greaterThan` n = Just (Invalid err (toJSON n) mempty)
   | otherwise         = Nothing
@@ -32,7 +32,7 @@ maximumVal exclusiveMaximum n x
                            then ((>=), ExclusiveMaximum)
                            else ((>), Maximum)
 
-data MinimumFailure
+data MinimumInvalid
   = Minimum
   | ExclusiveMinimum
   deriving (Eq, Show)
@@ -41,7 +41,7 @@ minimumVal
   :: Bool
   -> Scientific
   -> Scientific
-  -> Maybe (Failure MinimumFailure)
+  -> Maybe (Failure MinimumInvalid)
 minimumVal exclusiveMinimum n x
   | x `lessThan` n = Just (Invalid err (toJSON n) mempty)
   | otherwise      = Nothing

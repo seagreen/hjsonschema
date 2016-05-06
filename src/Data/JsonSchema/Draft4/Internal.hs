@@ -184,8 +184,8 @@ validateArray referenced (SchemaWithURI schema mUri) x = concat
     recurse = descendNextLevel referenced (SchemaWithURI schema mUri)
 
     fItems (AR.Items err)                        = Items err
-    fItems AR.AdditionalItemsBoolFailure         = AdditionalItemsBool
-    fItems (AR.AdditionalItemsObjectFailure err) = AdditionalItemsObject err
+    fItems AR.AdditionalItemsBoolInvalid         = AdditionalItemsBool
+    fItems (AR.AdditionalItemsObjectInvalid err) = AdditionalItemsObject err
 
 validateObject
   :: ReferencedSchemas Schema
@@ -221,24 +221,24 @@ validateObject referenced (SchemaWithURI schema mUri) x = concat
 
     recurse = descendNextLevel referenced (SchemaWithURI schema mUri)
 
-    fDeps (OB.SchemaDependencyFailure err) = SchemaDependency err
-    fDeps OB.PropertyDependencyFailure     = PropertyDependency
+    fDeps (OB.SchemaDependencyInvalid err) = SchemaDependency err
+    fDeps OB.PropertyDependencyInvalid     = PropertyDependency
 
-    fProp (OB.PropertiesFailure err)   = Properties err
-    fProp (OB.PropPatternFailure err)  = PatternProperties err
-    fProp (OB.PropAdditionalFailure a) =
+    fProp (OB.PropertiesInvalid err)   = Properties err
+    fProp (OB.PropPatternInvalid err)  = PatternProperties err
+    fProp (OB.PropAdditionalInvalid a) =
       case a of
-        OB.APBoolFailure       -> AdditionalPropertiesBool
-        OB.APObjectFailure err -> AdditionalPropertiesObject err
+        OB.APBoolInvalid       -> AdditionalPropertiesBool
+        OB.APObjectInvalid err -> AdditionalPropertiesObject err
 
-    fPatProp (OB.PPFailure err) = PatternProperties err
-    fPatProp (OB.PPAdditionalPropertiesFailure a)   =
+    fPatProp (OB.PPInvalid err) = PatternProperties err
+    fPatProp (OB.PPAdditionalPropertiesInvalid a)   =
       case a of
-        OB.APBoolFailure       -> AdditionalPropertiesBool
-        OB.APObjectFailure err -> AdditionalPropertiesObject err
+        OB.APBoolInvalid       -> AdditionalPropertiesBool
+        OB.APObjectInvalid err -> AdditionalPropertiesObject err
 
-    fAddProp OB.APBoolFailure         = AdditionalPropertiesBool
-    fAddProp (OB.APObjectFailure err) = AdditionalItemsObject err
+    fAddProp OB.APBoolInvalid         = AdditionalPropertiesBool
+    fAddProp (OB.APObjectInvalid err) = AdditionalItemsObject err
 
 --------------------------------------------------
 -- * Validation (Internal utils)

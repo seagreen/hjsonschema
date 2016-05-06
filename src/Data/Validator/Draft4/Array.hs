@@ -35,10 +35,10 @@ uniqueItems False _ = Nothing
 -- * items
 --------------------------------------------------
 
-data ItemsFailure err
+data ItemsInvalid err
   = Items err
-  | AdditionalItemsBoolFailure
-  | AdditionalItemsObjectFailure err
+  | AdditionalItemsBoolInvalid
+  | AdditionalItemsObjectInvalid err
   deriving (Eq, Show)
 
 data Items schema
@@ -65,10 +65,10 @@ items
   -> Maybe (AdditionalItems schema)
   -> Items schema
   -> Vector Value
-  -> [Failure (ItemsFailure err)]
+  -> [Failure (ItemsInvalid err)]
 items f _ (ItemsObject subSchema) xs = zip [0..] (V.toList xs) >>= g
   where
-    g :: (Int, Value) -> [Failure (ItemsFailure err)]
+    g :: (Int, Value) -> [Failure (ItemsInvalid err)]
     g (index,x) = modFailure Items
                 . addToPath (P.Token (T.pack (show index)))
               <$> f subSchema x
@@ -79,15 +79,15 @@ items f mAdditional (ItemsArray subSchemas) xs = itemFailures
     indexedValues :: [(Int, Value)]
     indexedValues = zip [0..] (V.toList xs)
 
-    itemFailures :: [Failure (ItemsFailure err)]
+    itemFailures :: [Failure (ItemsInvalid err)]
     itemFailures = join (zipWith g subSchemas indexedValues)
       where
-        g :: schema -> (Int, Value) -> [Failure (ItemsFailure err)]
+        g :: schema -> (Int, Value) -> [Failure (ItemsInvalid err)]
         g schema (index,x) = modFailure Items
                            . addToPath (P.Token (T.pack (show index)))
                          <$> f schema x
 
-    additionalItemFailures :: [Failure (ItemsFailure err)]
+    additionalItemFailures :: [Failure (ItemsInvalid err)]
     additionalItemFailures =
       case mAdditional of
         Nothing  -> mempty
@@ -105,8 +105,8 @@ items f mAdditional (ItemsArray subSchemas) xs = itemFailures
         -- represent invalid data so they actually represent the correct
         -- offsets.
         correctIndexes
-          :: Failure (AdditionalItemsFailure err)
-          -> Failure (AdditionalItemsFailure err)
+          :: Failure (AdditionalItemsInvalid err)
+          -> Failure (AdditionalItemsInvalid err)
         correctIndexes (Invalid a b c) = Invalid a b (fixIndex c)
           where
             fixIndex :: P.Pointer -> P.Pointer
@@ -117,18 +117,18 @@ items f mAdditional (ItemsArray subSchemas) xs = itemFailures
                   (P.Token . T.pack . show $ n + length subSchemas):toks
             fixIndex (P.Pointer []) = P.Pointer []
 
-        correctName :: AdditionalItemsFailure err -> ItemsFailure err
-        correctName AdditionalBoolFailure = AdditionalItemsBoolFailure
-        correctName (AdditionalObjectFailure err) =
-          AdditionalItemsObjectFailure err
+        correctName :: AdditionalItemsInvalid err -> ItemsInvalid err
+        correctName AdditionalBoolInvalid = AdditionalItemsBoolInvalid
+        correctName (AdditionalObjectInvalid err) =
+          AdditionalItemsObjectInvalid err
 
 --------------------------------------------------
 -- * additionalItems
 --------------------------------------------------
 
-data AdditionalItemsFailure err
-  = AdditionalBoolFailure
-  | AdditionalObjectFailure err
+data AdditionalItemsInvalid err
+  = AdditionalBoolInvalid
+  | AdditionalObjectInvalid err
   deriving (Eq, Show)
 
 data AdditionalItems schema
@@ -154,15 +154,15 @@ additionalItems
      (schema -> Value -> [Failure err])
   -> AdditionalItems schema
   -> Vector Value
-  -> [Failure (AdditionalItemsFailure err)]
+  -> [Failure (AdditionalItemsInvalid err)]
 additionalItems _ (AdditionalBool b) xs
   | b               = mempty
-  | V.length xs > 0 = pure (Invalid AdditionalBoolFailure (Bool b) mempty)
+  | V.length xs > 0 = pure (Invalid AdditionalBoolInvalid (Bool b) mempty)
   | otherwise       = mempty
 additionalItems f (AdditionalObject subSchema) xs =
   zip [0..] (V.toList xs) >>= g
   where
-    g :: (Int, Value) -> [Failure (AdditionalItemsFailure err)]
-    g (index,x) = modFailure AdditionalObjectFailure
+    g :: (Int, Value) -> [Failure (AdditionalItemsInvalid err)]
+    g (index,x) = modFailure AdditionalObjectInvalid
                 . addToPath (P.Token (T.pack (show index)))
               <$> f subSchema x

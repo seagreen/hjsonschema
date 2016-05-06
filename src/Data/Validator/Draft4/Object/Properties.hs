@@ -19,10 +19,10 @@ newtype Remaining = Remaining { _unRemaining :: HashMap Text Value }
 -- * properties
 --------------------------------------------------
 
-data PropertiesFailure err
-  = PropertiesFailure err
-  | PropPatternFailure err
-  | PropAdditionalFailure (AdditionalPropertiesFailure err)
+data PropertiesInvalid err
+  = PropertiesInvalid err
+  | PropPatternInvalid err
+  | PropAdditionalInvalid (AdditionalPropertiesInvalid err)
   deriving (Eq, Show)
 
 -- | In order of what's tried: "properties", "patternProperties",
@@ -34,11 +34,11 @@ properties
   -> Maybe (AdditionalProperties schema)
   -> HashMap Text schema
   -> HashMap Text Value
-  -> [Failure (PropertiesFailure err)]
+  -> [Failure (PropertiesInvalid err)]
 properties f mPat mAdd propertiesHm x =
-     fmap (modFailure PropertiesFailure) propFailures
-  <> fmap (modFailure PropPatternFailure) patternFailures
-  <> fmap (modFailure PropAdditionalFailure) additionalFailures
+     fmap (modFailure PropertiesInvalid) propFailures
+  <> fmap (modFailure PropPatternInvalid) patternFailures
+  <> fmap (modFailure PropAdditionalInvalid) additionalFailures
   where
     propertiesAndUnmatched :: ([Failure err], Remaining)
     propertiesAndUnmatched = ( failures
@@ -64,7 +64,7 @@ properties f mPat mAdd propertiesHm x =
                    Nothing  -> remaining1
                    Just val -> snd . val . _unRemaining $ remaining1
 
-    additionalFailures :: [Failure (AdditionalPropertiesFailure err)]
+    additionalFailures :: [Failure (AdditionalPropertiesInvalid err)]
     additionalFailures = case additionalProperties f <$> mAdd of
                            Nothing  -> mempty
                            Just val -> val (_unRemaining remaining2)
@@ -73,9 +73,9 @@ properties f mPat mAdd propertiesHm x =
 -- * patternProperties
 --------------------------------------------------
 
-data PatternPropertiesFailure err
-  = PPFailure err
-  | PPAdditionalPropertiesFailure (AdditionalPropertiesFailure err)
+data PatternPropertiesInvalid err
+  = PPInvalid err
+  | PPAdditionalPropertiesInvalid (AdditionalPropertiesInvalid err)
   deriving (Eq, Show)
 
 patternProperties
@@ -84,17 +84,17 @@ patternProperties
   -> Maybe (AdditionalProperties schema)
   -> HashMap Text schema
   -> HashMap Text Value
-  -> [Failure (PatternPropertiesFailure err)]
+  -> [Failure (PatternPropertiesInvalid err)]
 patternProperties f mAdd patternPropertiesHm x =
-     fmap (modFailure PPFailure) ppFailures
-  <> fmap (modFailure PPAdditionalPropertiesFailure) addFailures
+     fmap (modFailure PPInvalid) ppFailures
+  <> fmap (modFailure PPAdditionalPropertiesInvalid) addFailures
   where
     patternProps :: ([Failure err], Remaining)
     patternProps = patternAndUnmatched f patternPropertiesHm x
 
     (ppFailures, remaining) = patternProps
 
-    addFailures :: [Failure (AdditionalPropertiesFailure err)]
+    addFailures :: [Failure (AdditionalPropertiesInvalid err)]
     addFailures = case additionalProperties f <$> mAdd of
                     Nothing  -> mempty
                     Just val -> val (_unRemaining remaining)
@@ -149,9 +149,9 @@ patternAndUnmatched f patPropertiesHm x =
 -- * additionalProperties
 --------------------------------------------------
 
-data AdditionalPropertiesFailure err
-  = APBoolFailure
-  | APObjectFailure err
+data AdditionalPropertiesInvalid err
+  = APBoolInvalid
+  | APObjectInvalid err
   deriving (Eq, Show)
 
 data AdditionalProperties schema
@@ -177,14 +177,14 @@ additionalProperties
      (schema -> Value -> [Failure err])
   -> AdditionalProperties schema
   -> HashMap Text Value
-  -> [Failure (AdditionalPropertiesFailure err)]
+  -> [Failure (AdditionalPropertiesInvalid err)]
 additionalProperties _ (AdditionalPropertiesBool False) x
-  | H.size x > 0 = pure $ Invalid APBoolFailure (Bool False) mempty
+  | H.size x > 0 = pure $ Invalid APBoolInvalid (Bool False) mempty
   | otherwise    = mempty
 additionalProperties _ (AdditionalPropertiesBool True) _ = mempty
 additionalProperties f (AdditionalPropertiesObject schema) x = H.toList x >>= g
   where
-    g :: (Text, Value) -> [Failure (AdditionalPropertiesFailure err)]
-    g (k,v) = modFailure APObjectFailure
+    g :: (Text, Value) -> [Failure (AdditionalPropertiesInvalid err)]
+    g (k,v) = modFailure APObjectInvalid
             . addToPath (P.Token k)
           <$> f schema v
