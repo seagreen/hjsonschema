@@ -12,9 +12,10 @@ import qualified Test.Tasty.HUnit       as HU
 import           Test.Tasty.QuickCheck  (testProperty)
 
 -- Examples
-import qualified CustomSchema           as C
-import qualified PrettyShowFailure      as P
-import qualified Standard               as S
+import qualified CustomSchema
+import qualified Full
+import qualified PrettyShowFailure
+import qualified Simple
 
 import           Data.JsonSchema.Draft4
 import           Local.Failure          (correctPaths)
@@ -30,7 +31,7 @@ main = do
   filenames <- filter isLocal . filter (".json" `isSuffixOf`) <$> getDirectoryContents dir
   ts <- readSchemaTests dir filenames
   defaultMain . testGroup "Tests not requiring an HTTP server" $
-      testGroup "Check that examples compile" exampleTests
+      testGroup "Check that examples compile and don't throw errors" exampleTests
     : testGroup "QuickCheck tests" quickCheckTests
     : testGroup "Report the path to invalid data correctly" correctPaths
     : testGroup "Test the referencesViaFilesystem function" fetchFromFilesystem
@@ -46,7 +47,8 @@ quickCheckTests =
 
 exampleTests :: [TestTree]
 exampleTests =
-  [ HU.testCase "Standard Example" S.example
-  , HU.testCase "PrettyShowFailure Example" P.example
-  , HU.testCase "CustomSchema Example" C.example
+  [ HU.testCase "CustomSchema example" CustomSchema.example
+  , HU.testCase "Full example" Full.example
+  , HU.testCase "PrettyShowFailure example" PrettyShowFailure.example
+  , HU.testCase "Simple example" Simple.example
   ]

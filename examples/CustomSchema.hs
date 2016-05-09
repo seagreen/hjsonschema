@@ -1,11 +1,14 @@
-{-# LANGUAGE OverloadedStrings #-}
-
--- | A custom schema made up of one validator from 'Data.Validator.Draft4'
--- and one original validator.
+-- | A custom schema specification using one validator from
+-- 'Data.Validator.Draft4' and one original validator.
 --
 -- This is a simple example because it doesn't allow references (so it
 -- doesn't need to define an 'embed' function @Schema -> [Schema]@ for use
 -- with 'fetchReferencedSchemas'.
+--
+-- For a full example see 'Data.JsonSchema.Draft4' and its submodules.
+-- Code use between schema specifications will likely be OK but not great.
+-- All the 'Data.Validator' code as well as the 'Data.JsonSchema.Fetch' code
+-- is reusable, but there's a lot of boilerplate to tie it together.
 
 module CustomSchema where
 
@@ -36,8 +39,8 @@ data Schema = Schema
   , _schemaOddLength :: Maybe Bool
   }
 
--- | Since every 'Schema' is valid we don't need to bother defining something
--- like 'Data.JsonSchema.Draft4.checkValidity' for this schema.
+-- | If our 'Schema's themselves could be invalid we might want to write
+-- something like 'Data.JsonSchema.Draft4.schemaValidityy' for them.
 validate :: Schema -> Value -> [FR.Failure CustomError]
 validate s (String x) = concat
   [ f _schemaMaxLength (FR.setFailure MaxLength) (fmap maybeToList . VA.maxLength)

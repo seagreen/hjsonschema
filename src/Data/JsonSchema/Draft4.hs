@@ -97,7 +97,9 @@ fetchFilesystemAndValidate sw v = do
                    Nothing       -> Right ()
                    Just failures -> Left (FVData failures)
 
--- | Check the validity of a schema and return a function to validate data.
+-- | Check the that a schema itself is valid.
+--
+-- Return a function to validate data.
 checkSchema
   :: ReferencedSchemas Schema
   -> SchemaWithURI Schema
@@ -120,8 +122,7 @@ referencesViaFilesystem
   -> IO (Either FilesystemFailure (ReferencedSchemas Schema))
 referencesViaFilesystem = FE.referencesViaFilesystem' draft4Spec
 
--- | In normal situations just use 'checkSchema', which is a combination of
--- 'schemaValidity' and 'runValidate'.
+-- | Check that a schema itself is valid.
 schemaValidity :: Schema -> [Invalid]
 schemaValidity = IN.runValidate referenced (SchemaWithURI d4 Nothing) . toJSON
   where

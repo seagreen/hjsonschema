@@ -1,4 +1,11 @@
-{-# LANGUAGE OverloadedStrings #-}
+-- | 'D4.Invalid's contain a JSON Pointer to the subset of the data that
+-- caused validation to fail, but they don't contain that data itself.
+--
+-- If you want to display the invalid subset of the data here's how you
+-- resolve the JSON Pointer (which has the field name
+-- 'D4._invalidOffendingData') against the original data.
+--
+-- NOTE: You have to have hjsonpointer in your build-depends.
 
 module PrettyShowFailure where
 
@@ -20,18 +27,6 @@ failure = D4.Invalid
 
 example :: IO ()
 example =
-  -- 'D4.Invalid's contain the sequence of embedded validators that caused
-  -- the invalidation, the contents of the final validator in that sequence,
-  -- and a JSON Pointer to the subset of data that caused validation to fail.
-  --
-  -- They don't actually contain that subset of data, since it can be derived
-  -- from the original data and the JSON Pointer.
-  --
-  -- If you want to display the invalid subset of the data here's how you
-  -- resolve the JSON Pointer (which has the field name
-  -- 'D4._failureOffendingData') against the original data.
-  --
-  -- NOTE: You have to have hjsonpointer in your build-depends.
   case AP.resolve (D4._invalidOffendingData failure) badData of
     Left _  -> error "Couldn't resolve pointer."
     Right _ -> return () -- Success. We could feed the 'Right' value into
