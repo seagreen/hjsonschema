@@ -16,6 +16,7 @@ extra-source-files:     changelog.txt
                         README.md
                         src/draft4.json
                         test/Local/*.json
+                        examples/json/*.json
 
 library
   hs-source-dirs:       src
