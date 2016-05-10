@@ -1,5 +1,5 @@
 name:                   hjsonschema
-version:                0.10.0.0
+version:                0.10.0.1
 synopsis:               JSON Schema library
 homepage:               https://github.com/seagreen/hjsonschema
 license:                MIT
@@ -12,6 +12,7 @@ cabal-version:          >=1.10
 tested-with:            GHC == 7.8.4, GHC == 7.10.2
 extra-source-files:     changelog.txt
                         JSON-Schema-Test-Suite/remotes/*.json
+                        JSON-Schema-Test-Suite/remotes/folder/*.json
                         JSON-Schema-Test-Suite/tests/draft4/*.json
                         README.md
                         src/draft4.json

@@ -1,3 +1,7 @@
+# 0.10.0.1
+
++ Fix .cabal file.
+
 # 0.10
 
 + Rewrite fetching internals.
