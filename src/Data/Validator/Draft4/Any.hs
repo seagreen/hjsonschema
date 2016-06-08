@@ -1,41 +1,66 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Validator.Draft4.Any where
+
+import           Import
+-- Hiding is for GHCs before 7.10:
+import           Prelude hiding           (any, elem)
 
 import           Control.Monad
 import           Data.Aeson.Types         (Parser)
 import           Data.List.NonEmpty       (NonEmpty)
-import qualified Data.List.NonEmpty       as N
+import qualified Data.List.NonEmpty       as NE
 import           Data.Maybe
-import           Data.Scientific
+import qualified Data.Scientific          as SCI
 import           Data.Set                 (Set)
 import qualified Data.Set                 as S
 
-import           Data.Validator.Failure
-import           Data.Validator.Utils
-import           Data.Validator.Reference (resolveFragment, resolveReference)
-import           Import
-
--- For GHCs before 7.10:
-import           Prelude hiding           (any, elem)
+import           Data.Validator.Failure   (Fail(..))
+import qualified Data.Validator.Utils     as UT
+import           Data.Validator.Reference (URIBaseAndFragment,
+                                           resolveFragment, resolveReference)
 
 --------------------------------------------------
 -- * $ref
 --------------------------------------------------
 
--- | Will return 'Nothing' if the reference can't be resolved.
+data RefInvalid err
+    = RefResolution
+    | RefLoop
+    | RefInvalid err
+    deriving (Eq, Show)
+
+newtype VisitedSchemas
+    = VisitedSchemas { _unVisited :: [URIBaseAndFragment] }
+    deriving (Eq, Show, Monoid)
+
 ref
-  :: forall err schema. (FromJSON schema, ToJSON schema, Show schema)
-  => Maybe Text
-  -> (Maybe Text -> Maybe schema)
-  -> (Maybe Text -> schema -> Value -> [Failure err])
-  -> Text
-  -> Value
-  -> Maybe [Failure err]
-ref scope getRef f reference x = do
-  let (mUri, mFragment) = resolveReference scope reference
-  schema <- getRef mUri
-  s      <- resolveFragment mFragment schema
-  Just (f mUri s x)
+    :: forall err schema. (FromJSON schema, ToJSON schema)
+    => VisitedSchemas
+    -> Maybe Text
+    -> (Maybe Text -> Maybe schema)
+    -> (VisitedSchemas -> Maybe Text -> schema -> Value -> [Fail err])
+    -> Text
+    -> Value
+    -> [Fail (RefInvalid err)]
+ref visited scope getRef f reference x
+    | (mUri, mFragment) `elem` _unVisited visited =
+        pure $ Failure RefLoop (toJSON reference) mempty x
+    | otherwise =
+        case getRef mUri of
+            Nothing     -> pure failureDNE
+            Just schema ->
+                case resolveFragment mFragment schema of
+                    Nothing -> pure failureDNE
+                    Just s  ->
+                        let newVisited = (VisitedSchemas [(mUri, mFragment)]
+                                      <> visited)
+                        in fmap RefInvalid <$> f newVisited mUri s x
+  where
+    (mUri, mFragment) = resolveReference scope reference
+
+    failureDNE :: Fail (RefInvalid err)
+    failureDNE = Failure RefResolution (toJSON reference) mempty x
 
 --------------------------------------------------
 -- * enum
@@ -51,128 +76,144 @@ ref scope getRef f reference x = do
 -- NOTE: We don't enforce the uniqueness constraint in the haskell code,
 -- but we do in the 'FromJSON' instance.
 newtype EnumVal
-  = EnumVal { _unEnumVal :: NonEmpty Value }
-  -- Given a choice, we'd prefer to enforce uniqueness through the type
-  -- system over having at least one element. To use a 'Set' though we'd
-  -- have to use 'OrdValue' here (there's no 'Ord' instance for plain Values)
-  -- and we'd rather not make users mess with 'OrdValue'.
-  deriving (Eq, Show)
+    = EnumVal { _unEnumVal :: NonEmpty Value }
+    -- Given a choice, we'd prefer to enforce uniqueness through the type
+    -- system over having at least one element. To use a 'Set' though we'd
+    -- have to use 'OrdValue' here (there's no 'Ord' instance for plain Values)
+    -- and we'd rather not make users mess with 'OrdValue'.
+    deriving (Eq, Show)
 
 instance FromJSON EnumVal where
-  parseJSON v = checkUnique . _unNonEmpty' =<< parseJSON v
-    where
-      checkUnique :: NonEmpty Value -> Parser EnumVal
-      checkUnique a
-        | allUniqueValues' a = pure (EnumVal a)
-        | otherwise = fail "All elements of the Enum validator must be unique."
+    parseJSON v = checkUnique . UT._unNonEmpty' =<< parseJSON v
+      where
+        checkUnique :: NonEmpty Value -> Parser EnumVal
+        checkUnique a
+            | UT.allUniqueValues' a = pure (EnumVal a)
+            | otherwise = fail "All elements of the Enum validator must be unique."
 
 instance ToJSON EnumVal where
-  toJSON = toJSON . NonEmpty' . _unEnumVal
+    toJSON = toJSON . UT.NonEmpty' . _unEnumVal
 
 instance Arbitrary EnumVal where
-  arbitrary = do
-    xs <- traverse (const arbitraryValue) =<< (arbitrary :: Gen [()])
-    case N.nonEmpty (toUnique xs) of
-      Nothing -> EnumVal . pure <$> arbitraryValue
-      Just ne -> pure (EnumVal ne)
-    where
-      toUnique :: [Value] -> [Value]
-      toUnique = fmap _unOrdValue . S.toList . S.fromList . fmap OrdValue
+    arbitrary = do
+        xs <- traverse (const UT.arbitraryValue) =<< (arbitrary :: Gen [()])
+        case NE.nonEmpty (toUnique xs) of
+            Nothing -> EnumVal . pure <$> UT.arbitraryValue
+            Just ne -> pure (EnumVal ne)
+      where
+        toUnique :: [Value] -> [Value]
+        toUnique = fmap UT._unOrdValue . S.toList . S.fromList . fmap UT.OrdValue
 
-enumVal :: EnumVal -> Value -> Maybe (Failure ())
+enumVal :: EnumVal -> Value -> Maybe (Fail ())
 enumVal (EnumVal vs) x
-  | not (allUniqueValues' vs) = Nothing
-  | x `elem` vs               = Nothing
-  | otherwise                 =
-    Just $ Invalid () (toJSON (NonEmpty' vs)) mempty
+    | not (UT.allUniqueValues' vs) = Nothing
+    | x `elem` vs                  = Nothing
+    | otherwise                    = Just $ Failure () (toJSON (UT.NonEmpty' vs))
+                                                    mempty x
 
 --------------------------------------------------
 -- * type
 --------------------------------------------------
 
 data TypeVal
-  = TypeValString Text
-  | TypeValArray (Set Text)
-  deriving (Eq, Show)
+    = TypeValString Text
+    | TypeValArray (Set Text)
+    deriving (Eq, Show)
 
 instance FromJSON TypeVal where
-  parseJSON v = fmap TypeValString (parseJSON v)
-            <|> fmap TypeValArray (parseJSON v)
+    parseJSON v = fmap TypeValString (parseJSON v)
+              <|> fmap TypeValArray (parseJSON v)
 
 instance ToJSON TypeVal where
-  toJSON (TypeValString t) = toJSON t
-  toJSON (TypeValArray ts) = toJSON ts
+    toJSON (TypeValString t) = toJSON t
+    toJSON (TypeValArray ts) = toJSON ts
 
 instance Arbitrary TypeVal where
-  arbitrary = oneof [ TypeValString <$> arbitraryText
-                    , TypeValArray <$> arbitrarySetOfText
-                    ]
+    arbitrary = oneof [ TypeValString <$> UT.arbitraryText
+                      , TypeValArray <$> UT.arbitrarySetOfText
+                      ]
 
-typeVal :: TypeVal -> Value -> Maybe (Failure ())
-typeVal (TypeValString t) x = isJsonType x (S.singleton t)
-typeVal (TypeValArray ts) x = isJsonType x ts
+setFromTypeVal :: TypeVal -> Set Text
+setFromTypeVal (TypeValString t) = S.singleton t
+setFromTypeVal (TypeValArray ts) = ts
 
-isJsonType :: Value -> Set Text -> Maybe (Failure ())
-isJsonType x ts
-  | S.null (S.intersection okTypes ts) = Just (Invalid () (toJSON ts) mempty)
-  | otherwise                          = Nothing
+typeVal :: TypeVal -> Value -> Maybe (Fail ())
+typeVal tv x
+    | S.null matches = Just (Failure () (toJSON tv) mempty x)
+    | otherwise      = Nothing
   where
+    -- There can be more than one match because a 'Value' can be both a
+    -- @"number"@ and an @"integer"@.
+    matches :: Set Text
+    matches = S.intersection okTypes (setFromTypeVal tv)
+
     okTypes :: Set Text
     okTypes =
-      case x of
-        Null       -> S.singleton "null"
-        (Array _)  -> S.singleton "array"
-        (Bool _)   -> S.singleton "boolean"
-        (Object _) -> S.singleton "object"
-        (String _) -> S.singleton "string"
-        (Number y) ->
-          case toBoundedInteger y :: Maybe Int of
-            Nothing -> S.singleton "number"
-            Just _  -> S.fromList ["number", "integer"]
+        case x of
+            Null       -> S.singleton "null"
+            (Array _)  -> S.singleton "array"
+            (Bool _)   -> S.singleton "boolean"
+            (Object _) -> S.singleton "object"
+            (String _) -> S.singleton "string"
+            (Number y) ->
+                if SCI.isInteger y
+                    then S.fromList ["number", "integer"]
+                    else S.singleton "number"
 
 --------------------------------------------------
--- * other
+-- * allOf
 --------------------------------------------------
 
 allOf
-  :: (schema -> Value -> [Failure err])
-  -> NonEmpty schema
-  -> Value
-  -> [Failure err]
-allOf f subSchemas x = N.toList subSchemas >>= flip f x
+    :: (schema -> Value -> [Fail err])
+    -> NonEmpty schema
+    -> Value
+    -> [Fail err]
+allOf f subSchemas x = NE.toList subSchemas >>= flip f x
+
+--------------------------------------------------
+-- * anyOf
+--------------------------------------------------
 
 anyOf
-  :: ToJSON schema
-  => (schema -> Value -> [Failure err])
-  -> NonEmpty schema
-  -> Value
-  -> Maybe (Failure ())
+    :: ToJSON schema
+    => (schema -> Value -> [Fail err])
+    -> NonEmpty schema
+    -> Value
+    -> Maybe (Fail ())
 anyOf f subSchemas x
-  | any null (flip f x <$> subSchemas) = Nothing
-  | otherwise = Just $ Invalid () (toJSON (NonEmpty' subSchemas)) mempty
+    | any null (flip f x <$> subSchemas) = Nothing
+    | otherwise = Just $ Failure () (toJSON (UT.NonEmpty' subSchemas))
+                                 mempty x
+
+--------------------------------------------------
+-- * oneOf
+--------------------------------------------------
 
 oneOf
-  :: forall err schema. ToJSON schema
-  => (schema -> Value -> [Failure err])
-  -> NonEmpty schema
-  -> Value
-  -> Maybe (Failure ())
+    :: forall err schema. ToJSON schema
+    => (schema -> Value -> [Fail err])
+    -> NonEmpty schema
+    -> Value
+    -> Maybe (Fail ())
 oneOf f subSchemas x
-  | length successes == 1 = Nothing
-  | otherwise             = Just $ Invalid ()
-                                           (toJSON (NonEmpty' subSchemas))
-                                           mempty
+    | length successes == 1 = Nothing
+    | otherwise = Just $ Failure () (toJSON (UT.NonEmpty' subSchemas)) mempty x
   where
-    successes :: [[Failure err]]
-    successes = filter null $ flip f x <$> N.toList subSchemas
+    successes :: [[Fail err]]
+    successes = filter null $ flip f x <$> NE.toList subSchemas
+
+--------------------------------------------------
+-- * not
+--------------------------------------------------
 
 notVal
-  :: ToJSON schema
-  => (schema -> Value -> [Failure err])
-  -> schema
-  -> Value
-  -> Maybe (Failure ())
+    :: ToJSON schema
+    => (schema -> Value -> [Fail err])
+    -> schema
+    -> Value
+    -> Maybe (Fail ())
 notVal f schema x =
-  case f schema x of
-    [] -> Just (Invalid () (toJSON schema) mempty)
-    _  -> Nothing
+    case f schema x of
+        [] -> Just (Failure () (toJSON schema) mempty x)
+        _  -> Nothing

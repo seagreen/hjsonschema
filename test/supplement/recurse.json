@@ -1,0 +1,17 @@
+[
+    {
+        "description": "recursive ref",
+        "schema": {
+            "allOf": [
+                {"$ref": "#"}
+            ]
+        },
+        "tests": [
+            {
+                "description": "arbitrary data",
+                "data": {},
+                "valid": false
+            }
+        ]
+    }
+]
