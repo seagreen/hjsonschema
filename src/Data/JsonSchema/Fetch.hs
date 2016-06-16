@@ -87,7 +87,7 @@ referencesViaHTTP' spec sw = do
 data FilesystemFailure
   = FSParseFailure Text
   | FSReadFailure  IOError
-  deriving Show
+  deriving (Show, Eq)
 
 referencesViaFilesystem'
   :: forall schema. FromJSON schema

@@ -78,7 +78,7 @@ data FilesystemValidationFailure
   = FVRead   FilesystemFailure
   | FVSchema (NonEmpty Invalid)
   | FVData   (NonEmpty Invalid)
-  deriving Show
+  deriving (Show, Eq)
 
 fetchFilesystemAndValidate
   :: SchemaWithURI Schema
