@@ -1,3 +1,11 @@
+# 0.10.0.3
+
++ Bump http-client.
+
+# 0.10.0.2
+
++ Enable GHC 8.
+
 # 0.10.0.1
 
 + Fix .cabal file.
