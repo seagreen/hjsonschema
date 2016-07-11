@@ -1,17 +1,18 @@
 
 module Data.Validator.Utils where
 
+import           Import
+import           Prelude
+
 import           Control.Arrow
-import qualified Data.HashMap.Strict  as H
+import qualified Data.HashMap.Strict  as HM
 import           Data.List.NonEmpty   (NonEmpty)
-import qualified Data.List.NonEmpty   as N
+import qualified Data.List.NonEmpty   as NE
 import           Data.Scientific      (Scientific, fromFloatDigits)
 import           Data.Set             (Set)
 import qualified Data.Set             as S
 import qualified Data.Text            as T
 import qualified Data.Vector          as V
-
-import           Import
 
 --------------------------------------------------
 -- * QuickCheck
@@ -36,7 +37,7 @@ arbitraryValue = sized f
         | otherwise = oneof $
             fmap (Array . V.fromList) (traverse (const (f (n `div` 10)))
               =<< (arbitrary :: Gen [()]))
-          : fmap (Object . H.fromList) (traverse (const (g (n `div` 10)))
+          : fmap (Object . HM.fromList) (traverse (const (g (n `div` 10)))
               =<< (arbitrary :: Gen [()]))
           : nonRecursive
 
@@ -45,14 +46,14 @@ arbitraryValue = sized f
 
     nonRecursive :: [Gen Value]
     nonRecursive =
-      [ pure Null
-      , Bool <$> arbitrary
-      , String <$> arbitraryText
-      , Number <$> arbitraryScientific
-      ]
+        [ pure Null
+        , Bool <$> arbitrary
+        , String <$> arbitraryText
+        , Number <$> arbitraryScientific
+        ]
 
 arbitraryHashMap :: Arbitrary a => Gen (HashMap Text a)
-arbitraryHashMap = H.fromList . fmap (first T.pack) <$> arbitrary
+arbitraryHashMap = HM.fromList . fmap (first T.pack) <$> arbitrary
 
 arbitrarySetOfText :: Gen (Set Text)
 arbitrarySetOfText = S.fromList . fmap T.pack <$> arbitrary
@@ -60,21 +61,21 @@ arbitrarySetOfText = S.fromList . fmap T.pack <$> arbitrary
 newtype NonEmpty' a = NonEmpty' { _unNonEmpty' :: NonEmpty a }
 
 instance FromJSON a => FromJSON (NonEmpty' a) where
-  parseJSON v = do
-    xs <- parseJSON v
-    case N.nonEmpty xs of
-      Nothing -> fail "Must have at least one item."
-      Just ne -> pure (NonEmpty' ne)
+    parseJSON v = do
+        xs <- parseJSON v
+        case NE.nonEmpty xs of
+            Nothing -> fail "Must have at least one item."
+            Just ne -> pure (NonEmpty' ne)
 
 instance ToJSON a => ToJSON (NonEmpty' a) where
-  toJSON = toJSON . N.toList . _unNonEmpty'
+    toJSON = toJSON . NE.toList . _unNonEmpty'
 
 instance Arbitrary a => Arbitrary (NonEmpty' a) where
-  arbitrary = do
-    xs <- arbitrary
-    case N.nonEmpty xs of
-      Nothing -> NonEmpty' . pure <$> arbitrary
-      Just ne -> pure (NonEmpty' ne)
+    arbitrary = do
+        xs <- arbitrary
+        case NE.nonEmpty xs of
+            Nothing -> NonEmpty' . pure <$> arbitrary
+            Just ne -> pure (NonEmpty' ne)
 
 --------------------------------------------------
 -- * allUniqueValues
@@ -86,7 +87,7 @@ allUniqueValues = allUnique . fmap OrdValue . V.toList
 -- NOTE: When we no longer support GHC 7.8 we can generalize
 -- allUnique to work on any Foldable and remove this function.
 allUniqueValues' :: NonEmpty Value -> Bool
-allUniqueValues' = allUnique . fmap OrdValue . N.toList
+allUniqueValues' = allUnique . fmap OrdValue . NE.toList
 
 allUnique :: (Ord a) => [a] -> Bool
 allUnique xs = S.size (S.fromList xs) == length xs
@@ -97,26 +98,36 @@ allUnique xs = S.size (S.fromList xs) == length xs
 newtype OrdValue = OrdValue { _unOrdValue :: Value } deriving Eq
 
 instance Ord OrdValue where
-  (OrdValue Null) `compare` (OrdValue Null) = EQ
-  (OrdValue Null) `compare` _               = LT
-  _               `compare` (OrdValue Null) = GT
+    (OrdValue Null) `compare` (OrdValue Null) = EQ
+    (OrdValue Null) `compare` _               = LT
+    _               `compare` (OrdValue Null) = GT
 
-  (OrdValue (Bool x)) `compare` (OrdValue (Bool y)) = x `compare` y
-  (OrdValue (Bool _)) `compare` _                   = LT
-  _                   `compare` (OrdValue (Bool _)) = GT
+    (OrdValue (Bool x)) `compare` (OrdValue (Bool y)) = x `compare` y
+    (OrdValue (Bool _)) `compare` _                   = LT
+    _                   `compare` (OrdValue (Bool _)) = GT
 
-  (OrdValue (Number x)) `compare` (OrdValue (Number y)) = x `compare` y
-  (OrdValue (Number _)) `compare` _                     = LT
-  _                     `compare` (OrdValue (Number _)) = GT
+    (OrdValue (Number x)) `compare` (OrdValue (Number y)) = x `compare` y
+    (OrdValue (Number _)) `compare` _                     = LT
+    _                     `compare` (OrdValue (Number _)) = GT
 
-  (OrdValue (String x)) `compare` (OrdValue (String y)) = x `compare` y
-  (OrdValue (String _)) `compare` _                     = LT
-  _                     `compare` (OrdValue (String _)) = GT
+    (OrdValue (String x)) `compare` (OrdValue (String y)) = x `compare` y
+    (OrdValue (String _)) `compare` _                     = LT
+    _                     `compare` (OrdValue (String _)) = GT
 
-  (OrdValue (Array xs)) `compare` (OrdValue (Array ys)) =
-    (OrdValue <$> xs) `compare` (OrdValue <$> ys)
-  (OrdValue (Array _))  `compare` _                     = LT
-  _                     `compare` (OrdValue (Array _))  = GT
+    (OrdValue (Array xs)) `compare` (OrdValue (Array ys)) =
+        (OrdValue <$> xs) `compare` (OrdValue <$> ys)
+    (OrdValue (Array _))  `compare` _                     = LT
+    _                     `compare` (OrdValue (Array _))  = GT
 
-  (OrdValue (Object x)) `compare` (OrdValue (Object y)) =
-    H.toList (OrdValue <$> x) `compare` H.toList (OrdValue <$> y)
+    (OrdValue (Object x)) `compare` (OrdValue (Object y)) =
+        HM.toList (OrdValue <$> x) `compare` HM.toList (OrdValue <$> y)
+
+--------------------------------------------------
+-- * other
+--------------------------------------------------
+
+fromJSONEither :: FromJSON a => Value -> Either Text a
+fromJSONEither a =
+    case fromJSON a of
+        Error e   -> Left (T.pack e)
+        Success b -> Right b

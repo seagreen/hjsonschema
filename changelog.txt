@@ -1,3 +1,39 @@
+# 1.0.0.0
+
+## Bug fixes:
+
++ Fix JSON Pointer bug. Pointers were being built in reverse order and so were
+totally invalid.
++ Use `.:!` instead of `.:?` to parse the draft 4 schema. The only way to omit
+optional fields in JSON Schema Draft 4 is to omit them entirely, `"null"`
+can't be used for this.
+
+## API Changes:
+
++ Add referenced schema loop detection.
++ Add a new `referencesValidity` function.
++ `checkSchema` now checks referenced schema's validity in addition to the
+starting schema's validity. This change bubbles up to the one-step validation
+functions as well.
++ Switch most of the fetching code to use `URISchemaMap` instead of
+`ReferencedSchemas`. It didn't need to know about the more complicated data
+type.
++ Rething failure related names. Change `Invalid` to `Failure`, add a new
+`Invalid` type alias which is only used for final results.
++ Failures now include the failing part of the data as well as a JSON Pointer to
+it, so you don't have to worry about resolving the pointer.
+
+## Fundamental Changes:
+
++ Make `Fail` (previously `Failure`) an instance of `Functor`.
++ Add a `Validator` data type which is an instance of `Profunctor`.
++ Add a `Spec` data type for collections of `Validators`.
+
+## General:
+
++ Switch from 2 to 4 space indentation.
++ Update the vendored JSON Schema Test Suite.
+
 # 0.10.0.3
 
 + Bump http-client.

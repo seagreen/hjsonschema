@@ -4,7 +4,9 @@ A Haskell implementation of the current [JSON Schema](http://json-schema.org/) s
 
 [Hackage](https://hackage.haskell.org/package/hjsonschema) / [GitHub](https://github.com/seagreen/hjsonschema) / [Travis CI](https://travis-ci.org/seagreen/hjsonschema)
 
-NOTE: You CANNOT use untrusted JSON data to make schemas. Schemas with circular references can cause infinite loops. See the issue list for more info.
+Requires [pcre](http://www.pcre.org/) (`pkgs.pcre` in Nixpkgs).
+
+NOTE: Schemas with circular references can cause infinite loops. hjsonschema does loop detection but it may not be solid yet -- please open an issue if you find a situation where it fails.
 
 # Example
 
@@ -34,7 +36,7 @@ Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP
 
 ## Good Parts
 
-+ Passes all the tests in the [language agnostic test suite](https://github.com/json-schema/JSON-Schema-Test-Suite).
++ Passes all the required tests in the [language agnostic test suite](https://github.com/json-schema/JSON-Schema-Test-Suite).
 
 + Very modular, which should make it easy to support future versions of the specification.
 
@@ -42,11 +44,13 @@ Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP
 
 + Uses the [pcre-heavy](https://hackage.haskell.org/package/pcre-heavy) regular expression library for the "pattern" validator. It should use a library based on the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
 
++ Currently doesn't support the optional `"format"` validators.
+
 ## Notes
 
 + `JSON-Schema-Test-Suite` is vendored from commit # aabcb3427745ade7a0b4d49ff016ad7eda8b898b [here](https://github.com/json-schema-org/JSON-Schema-Test-Suite).
 
-+ `src/draft4.json` is from commit # cc8ec81ce0abe2385ebd6c2a6f2d6deb646f874a [here](https://github.com/json-schema/json-schema).
++ `src/draft4.json` is from commit # f3d5aeb5ffbe9d9a5a0ceb761dc47c7c4c2efa68 [here](https://github.com/json-schema/json-schema).
 
 ## Credits
 
