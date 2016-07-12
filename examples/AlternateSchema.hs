@@ -23,7 +23,7 @@ import           Data.Monoid
 import           Data.Profunctor                (Profunctor (..))
 import           Data.Text                      (Text)
 
-import           Data.JsonSchema.Draft4         (schemaForSchemasBytes)
+import           Data.JsonSchema.Draft4         (metaSchemaBytes)
 import           Data.JsonSchema.Draft4.Failure
 import           Data.JsonSchema.Fetch          (ReferencedSchemas(..),
                                                  SchemaWithURI(..))
@@ -68,21 +68,21 @@ validate rs = continueValidating rs (AN.VisitedSchemas [(Nothing, Nothing)])
 
 -- A schema for schemas themselves, using @src/draft4.json@ which is loaded
 -- at compile time.
-schemaForSchemas :: Schema
-schemaForSchemas =
+metaSchema :: Schema
+metaSchema =
       fromMaybe (error "Schema decode failed (this should never happen)")
     . decode
     . LBS.fromStrict
-    $ schemaForSchemasBytes
+    $ metaSchemaBytes
 
 checkSchema :: Schema -> [Failure]
-checkSchema = validate referenced Nothing schemaForSchemas . Object . _unSchema
+checkSchema = validate referenced Nothing metaSchema . Object . _unSchema
   where
     referenced :: ReferencedSchemas Schema
     referenced = ReferencedSchemas
-                     schemaForSchemas
+                     metaSchema
                      (HM.singleton "http://json-schema.org/draft-04/schema"
-                         schemaForSchemas)
+                         metaSchema)
 
 --------------------------------------------------
 -- * Spec

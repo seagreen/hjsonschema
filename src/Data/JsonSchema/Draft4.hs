@@ -29,8 +29,8 @@ module Data.JsonSchema.Draft4
     , referencesViaFilesystem
 
       -- * Other Draft 4 things exported just in case
-    , schemaForSchemas
-    , schemaForSchemasBytes
+    , metaSchema
+    , metaSchemaBytes
     , schemaValidity
     , referencesValidity
     , checkSchema
@@ -147,28 +147,28 @@ checkSchema sm sw =
     failures = ((\v -> (Nothing, v)) <$> schemaValidity (_swSchema sw))
             <> (first Just <$> referencesValidity sm)
 
-schemaForSchemas :: Schema
-schemaForSchemas =
+metaSchema :: Schema
+metaSchema =
       fromMaybe (error "Schema decode failed (this should never happen)")
     . decode
     . LBS.fromStrict
-    $ schemaForSchemasBytes
+    $ metaSchemaBytes
 
-schemaForSchemasBytes :: BS.ByteString
-schemaForSchemasBytes =
+metaSchemaBytes :: BS.ByteString
+metaSchemaBytes =
     $(makeRelativeToProject "src/draft4.json" >>= embedFile)
 
 -- | Check that a schema itself is valid
 -- (if so the returned list will be empty).
 schemaValidity :: Schema -> [Failure]
 schemaValidity =
-    Spec.validate referenced (SchemaWithURI schemaForSchemas Nothing) . toJSON
+    Spec.validate referenced (SchemaWithURI metaSchema Nothing) . toJSON
   where
     referenced :: ReferencedSchemas Schema
     referenced = ReferencedSchemas
-                     schemaForSchemas
+                     metaSchema
                      (HM.singleton "http://json-schema.org/draft-04/schema"
-                         schemaForSchemas)
+                         metaSchema)
 
 -- | Check that a set of referenced schemas are valid
 -- (if so the returned list will be empty).

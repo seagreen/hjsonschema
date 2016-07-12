@@ -1,3 +1,5 @@
++ Rename `schemaForSchemas` to `metaSchema`.
+
 # 1.0.0.0
 
 ## Bug fixes:
