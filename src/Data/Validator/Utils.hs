@@ -29,28 +29,32 @@ arbitraryPositiveScientific = (fromFloatDigits :: Double -> Scientific)
                             . getPositive
                           <$> arbitrary
 
-arbitraryValue :: Gen Value
-arbitraryValue = sized f
-  where
-    f :: Int -> Gen Value
-    f n | n <= 1    = oneof nonRecursive
-        | otherwise = oneof $
-            fmap (Array . V.fromList) (traverse (const (f (n `div` 10)))
-              =<< (arbitrary :: Gen [()]))
-          : fmap (Object . HM.fromList) (traverse (const (g (n `div` 10)))
-              =<< (arbitrary :: Gen [()]))
-          : nonRecursive
+newtype ArbitraryValue
+    = ArbitraryValue { _unArbitraryValue :: Value }
+    deriving (Eq, Show)
 
-    g :: Int -> Gen (Text, Value)
-    g n = (,) <$> arbitraryText <*> f n
+instance Arbitrary ArbitraryValue where
+    arbitrary = ArbitraryValue <$> sized f
+      where
+        f :: Int -> Gen Value
+        f n | n <= 1    = oneof nonRecursive
+            | otherwise = oneof $
+                  fmap (Array . V.fromList) (traverse (const (f (n `div` 10)))
+                    =<< (arbitrary :: Gen [()]))
+                : fmap (Object . HM.fromList) (traverse (const (g (n `div` 10)))
+                    =<< (arbitrary :: Gen [()]))
+                : nonRecursive
 
-    nonRecursive :: [Gen Value]
-    nonRecursive =
-        [ pure Null
-        , Bool <$> arbitrary
-        , String <$> arbitraryText
-        , Number <$> arbitraryScientific
-        ]
+        g :: Int -> Gen (Text, Value)
+        g n = (,) <$> arbitraryText <*> f n
+
+        nonRecursive :: [Gen Value]
+        nonRecursive =
+            [ pure Null
+            , Bool <$> arbitrary
+            , String <$> arbitraryText
+            , Number <$> arbitraryScientific
+            ]
 
 arbitraryHashMap :: Arbitrary a => Gen (HashMap Text a)
 arbitraryHashMap = HM.fromList . fmap (first T.pack) <$> arbitrary

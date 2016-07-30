@@ -96,9 +96,9 @@ instance ToJSON EnumVal where
 
 instance Arbitrary EnumVal where
     arbitrary = do
-        xs <- traverse (const UT.arbitraryValue) =<< (arbitrary :: Gen [()])
+        xs <- (fmap.fmap) UT._unArbitraryValue arbitrary
         case NE.nonEmpty (toUnique xs) of
-            Nothing -> EnumVal . pure <$> UT.arbitraryValue
+            Nothing -> EnumVal . pure . UT._unArbitraryValue <$> arbitrary
             Just ne -> pure (EnumVal ne)
       where
         toUnique :: [Value] -> [Value]

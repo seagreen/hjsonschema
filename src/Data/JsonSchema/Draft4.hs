@@ -42,7 +42,6 @@ import           Prelude
 
 import           Control.Arrow                   (first, left)
 import qualified Data.ByteString                 as BS
-import qualified Data.ByteString.Lazy            as LBS
 import           Data.FileEmbed                  (embedFile,
                                                   makeRelativeToProject)
 import qualified Data.HashMap.Strict             as HM
@@ -150,8 +149,7 @@ checkSchema sm sw =
 metaSchema :: Schema
 metaSchema =
       fromMaybe (error "Schema decode failed (this should never happen)")
-    . decode
-    . LBS.fromStrict
+    . decodeStrict
     $ metaSchemaBytes
 
 metaSchemaBytes :: BS.ByteString
