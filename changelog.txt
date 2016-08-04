@@ -1,4 +1,7 @@
-+ Rename `schemaForSchemas` to `metaSchema`.
+# 1.1.0.0
+
++ Rename `schemaForSchemas` to `metaSchema` and `schemaForSchemasBytes` to
+`metaSchemaBytes`.
 
 # 1.0.0.0
 
