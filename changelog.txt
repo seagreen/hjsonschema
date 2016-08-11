@@ -1,3 +1,7 @@
+# 1.1.0.1
+
++ Bump `aeson` and `hjsonpointer`.
+
 # 1.1.0.0
 
 + Rename `schemaForSchemas` to `metaSchema` and `schemaForSchemasBytes` to
