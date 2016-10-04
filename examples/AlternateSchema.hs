@@ -138,8 +138,8 @@ d4Spec referenced visited scope =
         , dimap f (const Enum) D4.enumVal
         , dimap f (const TypeValidator) D4.typeVal
         , dimap f AllOf (D4.allOf lateral)
-        , dimap f (const AnyOf) (D4.anyOf lateral)
-        , dimap f (const OneOf) (D4.oneOf lateral)
+        , dimap f AnyOf (D4.anyOf lateral)
+        , dimap f oneOfE (D4.oneOf lateral)
         , dimap f (const NotValidator) (D4.notVal lateral)
         ]
   where

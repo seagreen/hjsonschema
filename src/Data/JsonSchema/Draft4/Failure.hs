@@ -71,8 +71,9 @@ data ValidatorChain
     | Enum
     | TypeValidator
     | AllOf ValidatorChain
-    | AnyOf
-    | OneOf
+    | AnyOf ValidatorChain
+    | OneOfTooManySuccesses
+    | OneOfNoSuccesses ValidatorChain
     | NotValidator
     deriving (Eq, Show)
 
@@ -110,9 +111,13 @@ patPropE (OB.PPAdditionalPropertiesInvalid a)   =
 
 addPropE :: OB.AdditionalPropertiesInvalid ValidatorChain -> ValidatorChain
 addPropE OB.APBoolInvalid         = AdditionalPropertiesBool
-addPropE (OB.APObjectInvalid err) = AdditionalItemsObject err
+addPropE (OB.APObjectInvalid err) = AdditionalPropertiesObject err
 
 refE :: AN.RefInvalid ValidatorChain -> ValidatorChain
 refE AN.RefResolution    = RefResolution
 refE AN.RefLoop          = RefLoop
 refE (AN.RefInvalid err) = Ref err
+
+oneOfE :: AN.OneOfInvalid ValidatorChain -> ValidatorChain
+oneOfE AN.TooManySuccesses  = OneOfTooManySuccesses
+oneOfE (AN.NoSuccesses err) = OneOfNoSuccesses err

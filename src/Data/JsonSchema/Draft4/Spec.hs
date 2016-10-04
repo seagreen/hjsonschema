@@ -22,6 +22,13 @@ import           Data.Validator.Reference       (updateResolutionScope)
 embedded :: Schema -> ([Schema], [Schema])
 embedded s = JT.embedded (d4Spec (ReferencedSchemas s mempty) mempty Nothing) s
 
+-- | For internal use.
+--
+-- A specialized version of 'const' that prevents overwriting
+-- useful information.
+toss :: a -> () -> a
+toss = const
+
 validate
     :: ReferencedSchemas Schema
     -> SchemaWithURI Schema
@@ -52,7 +59,7 @@ d4Spec
 d4Spec referenced visited scope = Spec
     [ dimap
         (fmap D4.MultipleOf . _schemaMultipleOf)
-        (const MultipleOf)
+        (toss MultipleOf)
         D4.multipleOf
     , dimap
         (\s -> D4.MaximumContext (fromMaybe False (_schemaExclusiveMaximum s))
@@ -65,13 +72,13 @@ d4Spec referenced visited scope = Spec
         minE
         D4.minimumVal
 
-    , dimap (fmap D4.MaxLength . _schemaMaxLength) (const MaxLength) D4.maxLength
-    , dimap (fmap D4.MinLength . _schemaMinLength) (const MinLength) D4.minLength
-    , dimap (fmap D4.PatternVal . _schemaPattern) (const PatternValidator) D4.patternVal
+    , dimap (fmap D4.MaxLength . _schemaMaxLength) (toss MaxLength) D4.maxLength
+    , dimap (fmap D4.MinLength . _schemaMinLength) (toss MinLength) D4.minLength
+    , dimap (fmap D4.PatternVal . _schemaPattern) (toss PatternValidator) D4.patternVal
 
-    , dimap (fmap D4.MaxItems . _schemaMaxItems) (const MaxItems) D4.maxItems
-    , dimap (fmap D4.MinItems . _schemaMinItems) (const MinItems) D4.minItems
-    , dimap (fmap D4.UniqueItems . _schemaUniqueItems) (const UniqueItems) D4.uniqueItems
+    , dimap (fmap D4.MaxItems . _schemaMaxItems) (toss MaxItems) D4.maxItems
+    , dimap (fmap D4.MinItems . _schemaMinItems) (toss MinItems) D4.minItems
+    , dimap (fmap D4.UniqueItems . _schemaUniqueItems) (toss UniqueItems) D4.uniqueItems
     , dimap
         (\s -> D4.ItemsContext (_schemaAdditionalItems s) <$> _schemaItems s)
         itemsE
@@ -79,9 +86,9 @@ d4Spec referenced visited scope = Spec
     , lmap (fmap D4.AdditionalItemsContext . _schemaAdditionalItems) D4.additionalItemsEmbedded
     , lmap (fmap D4.Definitions . _schemaDefinitions) D4.definitionsEmbedded
 
-    , dimap (fmap D4.MaxProperties . _schemaMaxProperties) (const MaxProperties) D4.maxProperties
-    , dimap (fmap D4.MinProperties . _schemaMinProperties) (const MinProperties) D4.minProperties
-    , dimap (fmap D4.RequiredContext . _schemaRequired) (const Required) D4.required
+    , dimap (fmap D4.MaxProperties . _schemaMaxProperties) (toss MaxProperties) D4.maxProperties
+    , dimap (fmap D4.MinProperties . _schemaMinProperties) (toss MinProperties) D4.minProperties
+    , dimap (fmap D4.RequiredContext . _schemaRequired) (toss Required) D4.required
     , dimap (fmap D4.DependenciesContext . _schemaDependencies) depsE (D4.dependencies descend)
     , dimap
         (\s -> D4.PropertiesContext
@@ -109,12 +116,12 @@ d4Spec referenced visited scope = Spec
         (\s -> D4.Ref <$> _schemaRef s)
         refE
         (D4.ref visited scope (FE.getReference referenced) refVal)
-    , dimap (fmap D4.EnumContext . _schemaEnum) (const Enum) D4.enumVal
-    , dimap (fmap D4.TypeContext . _schemaType) (const TypeValidator) D4.typeVal
+    , dimap (fmap D4.EnumContext . _schemaEnum) (toss Enum) D4.enumVal
+    , dimap (fmap D4.TypeContext . _schemaType) (toss TypeValidator) D4.typeVal
     , dimap (fmap D4.AllOf . _schemaAllOf) AllOf (D4.allOf lateral)
-    , dimap (fmap D4.AnyOf . _schemaAnyOf) (const AnyOf) (D4.anyOf lateral)
-    , dimap (fmap D4.OneOf . _schemaOneOf) (const OneOf) (D4.oneOf lateral)
-    , dimap (fmap D4.NotVal . _schemaNot) (const NotValidator) (D4.notVal lateral)
+    , dimap (fmap D4.AnyOf . _schemaAnyOf) AnyOf (D4.anyOf lateral)
+    , dimap (fmap D4.OneOf . _schemaOneOf) oneOfE (D4.oneOf lateral)
+    , dimap (fmap D4.NotVal . _schemaNot) (toss NotValidator) (D4.notVal lateral)
     ]
   where
     refVal :: AN.VisitedSchemas -> Maybe Text -> Schema -> Value -> [Failure]

@@ -502,15 +502,14 @@ instance FromJSON schema => FromJSON (AnyOf schema) where
         AnyOf <$> o .: "anyOf"
 
 anyOf
-    :: ToJSON schema
-    => (schema -> Value -> [Fail err])
-    -> Validator schema (Maybe (AnyOf schema)) ()
+    :: (schema -> Value -> [Fail err])
+    -> Validator schema (Maybe (AnyOf schema)) err
 anyOf f =
     Validator
         (\a -> case a of
                  Just (AnyOf b) -> (NE.toList b, mempty)
                  Nothing        -> (mempty, mempty))
-        (run (fmap maybeToList . AN.anyOf f . _unAnyOf))
+        (run (AN.anyOf f . _unAnyOf))
 
 newtype OneOf schema
     = OneOf { _unOneOf :: NonEmpty schema }
@@ -523,13 +522,13 @@ instance FromJSON schema => FromJSON (OneOf schema) where
 oneOf
     :: ToJSON schema
     => (schema -> Value -> [Fail err])
-    -> Validator schema (Maybe (OneOf schema)) ()
+    -> Validator schema (Maybe (OneOf schema)) (AN.OneOfInvalid err)
 oneOf f =
     Validator
         (\a -> case a of
                    Just (OneOf b) -> (NE.toList b, mempty)
                    Nothing        -> (mempty, mempty))
-        (run (fmap maybeToList . AN.oneOf f . _unOneOf))
+        (run (AN.oneOf f . _unOneOf))
 
 newtype NotVal schema
     = NotVal { _unNotVal :: schema }

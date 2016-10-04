@@ -4,10 +4,11 @@ module Data.Validator.Draft4.Any where
 
 import           Import
 -- Hiding is for GHCs before 7.10:
-import           Prelude hiding           (any, elem)
+import           Prelude hiding           (any, concat, elem)
 
 import           Control.Monad
 import           Data.Aeson.Types         (Parser)
+import           Data.List                (partition)
 import           Data.List.NonEmpty       (NonEmpty)
 import qualified Data.List.NonEmpty       as NE
 import           Data.Maybe
@@ -176,32 +177,48 @@ allOf f subSchemas x = NE.toList subSchemas >>= flip f x
 --------------------------------------------------
 
 anyOf
-    :: ToJSON schema
-    => (schema -> Value -> [Fail err])
+    :: forall err schema.
+       (schema -> Value -> [Fail err])
     -> NonEmpty schema
     -> Value
-    -> Maybe (Fail ())
+    -> [Fail err]
 anyOf f subSchemas x
-    | any null (flip f x <$> subSchemas) = Nothing
-    | otherwise = Just $ Failure () (toJSON (UT.NonEmpty' subSchemas))
-                                 mempty x
+    | any null results = mempty
+    | otherwise        = concat results
+  where
+    results :: [[Fail err]]
+    results = flip f x <$> NE.toList subSchemas
 
 --------------------------------------------------
 -- * oneOf
 --------------------------------------------------
+
+data OneOfInvalid err
+    = TooManySuccesses
+    | NoSuccesses err
+    deriving (Eq, Show)
 
 oneOf
     :: forall err schema. ToJSON schema
     => (schema -> Value -> [Fail err])
     -> NonEmpty schema
     -> Value
-    -> Maybe (Fail ())
+    -> [Fail (OneOfInvalid err)]
 oneOf f subSchemas x
-    | length successes == 1 = Nothing
-    | otherwise = Just $ Failure () (toJSON (UT.NonEmpty' subSchemas)) mempty x
+    | length successes == 1 = mempty
+    | length successes > 1  = pure tooManySuccesses
+    | otherwise             = fmap NoSuccesses <$> concat failures
   where
-    successes :: [[Fail err]]
-    successes = filter null $ flip f x <$> NE.toList subSchemas
+    (successes, failures) = partition null results
+
+    results :: [[Fail err]]
+    results = flip f x <$> NE.toList subSchemas
+
+    -- NOTE: This could also return information about the specific
+    -- validators that succeeded.
+    tooManySuccesses :: Fail (OneOfInvalid err)
+    tooManySuccesses = Failure TooManySuccesses
+                               (toJSON (UT.NonEmpty' subSchemas)) mempty x
 
 --------------------------------------------------
 -- * not
