@@ -2,10 +2,8 @@ with (import <nixpkgs> {});
 
 haskell.lib.buildStackProject {
   name = "none";
-  ghc = haskell.compiler.ghc801;
+  inherit ghc;
   buildInputs = [
-    zlib.dev
-    zlib.out
     pkgconfig
     pcre
   ];

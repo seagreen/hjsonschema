@@ -20,8 +20,7 @@ import qualified Data.Vector            as V
 import           GHC.Generics
 import qualified System.Directory       as SD
 import           System.FilePath        ((</>))
-import           Test.Tasty             (TestTree)
-import qualified Test.Tasty.HUnit       as HU
+import           Test.Hspec
 
 import qualified Data.JsonSchema.Draft4 as D4
 
@@ -48,7 +47,7 @@ listFilesFullPath path = do
             fs <- fmap (path </>) <$> SD.listDirectory path
             concat <$> traverse listFilesFullPath fs
 
-checkPointer :: Value -> D4.Failure -> HU.Assertion
+checkPointer :: Value -> D4.Failure -> Expectation
 checkPointer v failure =
     case AP.resolve (D4._failureOffendingPointer failure) v of
         Left e  -> error ("Couldn't resolve pointer: " <> show e)
@@ -57,18 +56,16 @@ checkPointer v failure =
     -- Some validators, such as 'additionalItems', only return a subset
     -- of the data incated by their '_failureOffendingPointer'.
     -- See the comments on 'Data.Validator.Failure.Failure' for more info.
-    assertContains :: Value -> Value -> HU.Assertion
+    assertContains :: Value -> Value -> Expectation
     assertContains x y
         | x == y    = pure ()
         | otherwise =
             case (x,y) of
                 (Array xs, Array ys) ->
-                    HU.assertBool "Pointer resolution incorrect"
-                                  (V.toList ys `isInfixOf` V.toList xs)
+                    V.toList ys `shouldSatisfy` (`isInfixOf` V.toList xs)
                 (Object xhm, Object yhm) ->
-                    HU.assertBool "Pointer resolution incorrect"
-                                  (HM.toList yhm `isInfixOf` HM.toList xhm)
-                _ -> HU.assertFailure
+                    HM.toList yhm `shouldSatisfy` (`isInfixOf` HM.toList xhm)
+                _ -> expectationFailure
                         "Pointer resolution incorrect: result mismatch"
 
 isHTTPTest :: String -> Bool
@@ -132,11 +129,11 @@ readSchemaTests dir filterFunc = do
 
 toTest
   :: forall schema. FromJSON schema
-  => (schema -> SchemaTestCase -> HU.Assertion)
+  => (schema -> SchemaTestCase -> Expectation)
   -> SchemaTest
-  -> TestTree
+  -> Spec
 toTest validate st =
-    HU.testCase (T.unpack (_stDescription st)) $
+    it (T.unpack (_stDescription st)) $
         forM_ (_stCases st) (validate schema)
   where
     schema :: schema
@@ -144,24 +141,24 @@ toTest validate st =
                  Error e   -> error ("Couldn't parse schema: " <> show e)
                  Success a -> a
 
-assertResult :: SchemaTestCase -> [D4.Failure] -> HU.Assertion
+assertResult :: SchemaTestCase -> [D4.Failure] -> Expectation
 assertResult sc failures
     | _scValid sc = assertValid sc failures
     | otherwise   = assertInvalid sc failures
 
-assertValid :: SchemaTestCase -> [D4.Failure] -> HU.Assertion
+assertValid :: SchemaTestCase -> [D4.Failure] -> Expectation
 assertValid _ [] = pure ()
 assertValid sc failures =
-    HU.assertFailure $ unlines
+    expectationFailure $ unlines
         [ "    Failed to validate data"
         , "    Description: "         <> T.unpack (_scDescription sc)
         , "    Data: "                <> show (_scData sc)
         , "    Validation failures: " <> show failures
         ]
 
-assertInvalid :: SchemaTestCase -> [D4.Failure] -> HU.Assertion
+assertInvalid :: SchemaTestCase -> [D4.Failure] -> Expectation
 assertInvalid sc [] =
-    HU.assertFailure $ unlines
+    expectationFailure $ unlines
         [ "    Validated invalid data"
         , "    Description: " <> T.unpack (_scDescription sc)
         , "    Data: "        <> show (_scData sc)

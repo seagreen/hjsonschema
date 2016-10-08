@@ -1,51 +1,35 @@
 
 module Local.Reference where
 
-import           Test.Tasty               (TestTree)
-import qualified Test.Tasty.HUnit         as HU
+import           Test.Hspec
 
 import           Data.Validator.Reference
 
-referenceTests :: [TestTree]
-referenceTests =
-    [ HU.testCase "updateResolutionScope test cases" updateResolutionScopeTests
-    , HU.testCase "resolveReference test cases" resolveReferenceTests
-    ]
+spec :: Spec
+spec = do
+    it "updateResolutionScope gives correct results" $ do
+        updateResolutionScope Nothing Nothing
+            `shouldBe` Nothing
 
-updateResolutionScopeTests :: IO ()
-updateResolutionScopeTests = do
-    HU.assertEqual
-        "case 1 result"
-        Nothing
-        (updateResolutionScope Nothing Nothing)
-    HU.assertEqual
-        "case 2 result"
-        Nothing
-        (updateResolutionScope Nothing (Just "#"))
-    HU.assertEqual
-        "case 3 result"
-        (Just "foo")
-        (updateResolutionScope Nothing (Just "foo"))
-    HU.assertEqual
-        "case 4 result"
-        (Just "/./bar") -- TODO: Normalize after updateResolutionScope.
-        (updateResolutionScope (Just "/foo") (Just "./bar"))
+        updateResolutionScope Nothing (Just "#")
+            `shouldBe` Nothing
 
-resolveReferenceTests :: IO ()
-resolveReferenceTests = do
-    HU.assertEqual
-        "case 1 result"
-        (Just "/bar", Nothing)
-        (resolveReference (Just "/foo") "bar")
-    HU.assertEqual
-        "case 2 result"
-        (Just "/baz", Nothing)
-        (resolveReference (Just "/foo/bar") "/baz")
-    HU.assertEqual
-        "case 3 result"
-        (Nothing, Just "/bar")
-        (resolveReference Nothing "#/bar")
-    HU.assertEqual
-        "case 4 result"
-        (Just "/foo", Just "/bar")
-        (resolveReference (Just "/foo") "#/bar")
+        updateResolutionScope Nothing (Just "foo")
+            `shouldBe` Just "foo"
+
+        -- TODO: Normalize after updateResolutionScope:
+        updateResolutionScope (Just "/foo") (Just "./bar")
+            `shouldBe` Just "/./bar"
+
+    it "resolveReference  gives correct results" $ do
+        resolveReference (Just "/foo") "bar"
+            `shouldBe` (Just "/bar", Nothing)
+
+        resolveReference (Just "/foo/bar") "/baz"
+            `shouldBe` (Just "/baz", Nothing)
+
+        resolveReference Nothing "#/bar"
+            `shouldBe` (Nothing, Just "/bar")
+
+        resolveReference (Just "/foo") "#/bar"
+            `shouldBe` (Just "/foo", Just "/bar")

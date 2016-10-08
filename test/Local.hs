@@ -8,17 +8,15 @@ import           Data.Foldable          (traverse_)
 import qualified Data.List.NonEmpty     as N
 import           Data.Monoid
 import qualified System.Timeout         as TO
-import           Test.Tasty             (TestTree, defaultMain, testGroup)
-import qualified Test.Tasty.HUnit       as HU
-import           Test.Tasty.QuickCheck  (testProperty)
+import           Test.Hspec
+import           Test.QuickCheck        (property)
 
 import qualified Data.JsonSchema.Draft4 as D4
 import           Data.JsonSchema.Fetch  (ReferencedSchemas(..))
 import qualified Data.JsonSchema.Types  as JT
-import           Local.Failure          (correctPaths)
-import           Local.Validation       (fetchFromFilesystem,
-                                         generalValidation)
-import           Local.Reference        (referenceTests)
+import qualified Local.Failure
+import qualified Local.Validation
+import qualified Local.Reference
 import           Shared
 
 -- Examples
@@ -45,47 +43,32 @@ main = do
                         supplementDir
                         (\a -> not (isHTTPTest a || skipOptional a))
 
-    defaultMain . testGroup "Tests not requiring an HTTP server" $
-        [ testGroup
-            "Check that examples compile and don't throw errors"
-            exampleTests
-        , testGroup
-            "QuickCheck tests"
-            quickCheckTests
-        , testGroup
-            "Report the path to invalid data correctly"
-            correctPaths
-        , testGroup
-            "Test the Reference module"
-            referenceTests
-        , testGroup
-            "Test the referencesViaFilesystem function"
-            fetchFromFilesystem
-        , testGroup
-            "Supplementary validation tests written in Haskell"
-            generalValidation
-        , testGroup
-            "Supplementary tests written in JSON (using the record based schema)"
-            (toTest (fmap timeout . validate) <$> supplementTs)
-        , testGroup
-            "Supplementary tests written in JSON (using the 'Value' based schema)"
-            (toTest (fmap timeout . validateExample) <$> supplementTs)
-        , testGroup
-            "Language agnostic local tests (using the record based schema)"
-            (toTest validate <$> ts)
-        , testGroup
-            "Language agnostic local tests (using the 'Value' based schema)"
-            (toTest validateExample <$> ts)
-        ]
+    hspec $ do
+        describe "Examples" exampleTests
+        describe "QuickCheck" quickCheckTests
+        describe "Failure" Local.Failure.spec
+        describe "Data.Validator.Reference" Local.Reference.spec
+        describe "Supplementary validation tests written in Haskell"
+            Local.Validation.spec
+
+        describe "Supplementary tests written in JSON (using the record based schema)"
+            (traverse_ (toTest (fmap timeout . validate)) supplementTs)
+        describe "Supplementary tests written in JSON (using the 'Value' based schema)"
+            (traverse_ (toTest (fmap timeout . validateExample)) supplementTs)
+
+        describe "Language agnostic tests (using the record based schema)"
+            (traverse_ (toTest validate) ts)
+        describe "Language agnostic tests (using the 'Value' based schema)"
+            (traverse_ (toTest validateExample) ts)
   where
-    timeout :: HU.Assertion -> HU.Assertion
+    timeout :: Expectation -> Expectation
     timeout f = do
         res <- TO.timeout 3000000 f
         case res of
-            Nothing -> HU.assertFailure "timeout expired"
+            Nothing -> expectationFailure "timeout expired"
             Just a  -> pure a
 
-    validate :: D4.Schema -> SchemaTestCase -> HU.Assertion
+    validate :: D4.Schema -> SchemaTestCase -> Expectation
     validate s sc = do
         res <- D4.fetchHTTPAndValidate (D4.SchemaWithURI s Nothing) (_scData sc)
         let failures = case res of
@@ -96,7 +79,7 @@ main = do
         traverse_ (checkPointer (_scData sc)) failures
         assertResult sc failures
 
-    validateExample :: JT.Schema -> SchemaTestCase -> HU.Assertion
+    validateExample :: JT.Schema -> SchemaTestCase -> Expectation
     validateExample s sc = do
         res <- AlternateSchema.referencesViaHTTP (D4.SchemaWithURI s Nothing)
         case res of
@@ -108,15 +91,15 @@ main = do
                 traverse_ (checkPointer (_scData sc)) failures
                 assertResult sc failures
 
-quickCheckTests :: [TestTree]
+quickCheckTests :: Spec
 quickCheckTests =
-    [testProperty "Invert schemas through JSON without change" invertSchema]
+    it "schemas invert through JSON without change" $ do
+        property invertSchema
   where
     invertSchema :: D4.Schema -> Bool
     invertSchema a = Just a == decode (encode a)
 
-exampleTests :: [TestTree]
-exampleTests =
-    [ HU.testCase "Full example" Full.example
-    , HU.testCase "Simple example" Simple.example
-    ]
+exampleTests :: Spec
+exampleTests = do
+    it "Full.example compiles successfully" Full.example
+    it "Simple.example compiles successfully" Simple.example
