@@ -1,3 +1,7 @@
+# 1.2.0.2
+
++ Bump hspec.
+
 # 1.2.0.1
 
 + Switch to hspec for tests.
