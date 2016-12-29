@@ -1,35 +1,41 @@
 
 module Local.Failure where
 
-import           Prelude
+import           Protolude
 
 import           Data.Aeson
-import qualified Data.Aeson.Pointer          as P
-import           Data.Monoid
 import           Test.Hspec
+import qualified Data.Vector                 as V
+import qualified JSONPointer                 as JP
 
 import           Data.JsonSchema.Draft4
-import           Data.JsonSchema.Draft4.Spec (validate)
-import qualified Data.Validator.Draft4.Array as AR
+import qualified Data.JsonSchema.Draft4.Spec as Spec
+import qualified Data.Validator.Draft4       as D4
 
 spec :: Spec
 spec = do
     it "items array failures are constructed correctly" itemsArray
     it "items object failures are constructed correctly" itemsObject
+    it "reports infinitely looping references correctly" loopRef
 
 itemsArray :: Expectation
 itemsArray =
     failures `shouldBe`
-        [Failure (Items UniqueItems) (Bool True) (P.Pointer [P.Token "0"])
-                 (toJSON [True, True])
+        [ FailureItems (D4.ItemsArrayInvalid (
+            pure ( JP.Index 0
+                 , pure (FailureUniqueItems (D4.UniqueItemsInvalid
+                       (V.fromList [Null, Null])
+                   ))
+                 )
+          ))
         ]
   where
-    failures = validate (ReferencedSchemas schema mempty)
-                        sw (toJSON [[True, True]])
+    failures :: [ValidatorFailure]
+    failures = Spec.specValidate (ReferencedSchemas schema mempty) sw badData
 
     schema :: Schema
     schema = emptySchema
-        { _schemaItems = Just $ AR.ItemsArray
+        { _schemaItems = Just $ D4.ItemsArray
             [emptySchema { _schemaUniqueItems = Just True }]
         }
 
@@ -39,19 +45,27 @@ itemsArray =
         , _swURI    = Nothing
         }
 
+    badData :: Value
+    badData = toJSON [[Null, Null]]
+
 itemsObject :: Expectation
 itemsObject =
     failures `shouldBe`
-        [Failure (Items UniqueItems) (Bool True) (P.Pointer [P.Token "0"])
-                 (toJSON [True, True])
+        [ FailureItems (D4.ItemsObjectInvalid (
+            pure ( JP.Index 1
+                 , pure (FailureUniqueItems (D4.UniqueItemsInvalid
+                       (V.fromList [Null, Null])
+                   ))
+                 )
+          ))
         ]
   where
-    failures = validate (ReferencedSchemas schema mempty)
-                        sw (toJSON [[True, True]])
+    failures :: [ValidatorFailure]
+    failures = Spec.specValidate (ReferencedSchemas schema mempty) sw badData
 
     schema :: Schema
     schema = emptySchema
-        { _schemaItems = Just $ AR.ItemsObject
+        { _schemaItems = Just $ D4.ItemsObject
             (emptySchema { _schemaUniqueItems = Just True })
         }
 
@@ -60,3 +74,33 @@ itemsObject =
         { _swSchema = schema
         , _swURI    = Nothing
         }
+
+    badData :: Value
+    badData = toJSON [Null, toJSON [Null, Null]]
+
+loopRef :: Expectation
+loopRef =
+    failures `shouldBe`
+        [ FailureRef (D4.RefLoop
+            "#"
+            (D4.VisitedSchemas [(Nothing, Nothing)])
+            (Nothing, Nothing)
+          )
+        ]
+  where
+    failures :: [ValidatorFailure]
+    failures = Spec.specValidate (ReferencedSchemas schema mempty) sw badData
+
+    schema :: Schema
+    schema = emptySchema
+        { _schemaRef = Just "#"
+        }
+
+    sw :: SchemaWithURI Schema
+    sw = SchemaWithURI
+        { _swSchema = schema
+        , _swURI    = Nothing
+        }
+
+    badData :: Value
+    badData = toJSON [[Null, Null]]

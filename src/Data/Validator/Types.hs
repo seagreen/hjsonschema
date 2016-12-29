@@ -1,13 +1,9 @@
-{-# LANGUAGE DeriveFunctor #-}
 
 module Data.Validator.Types where
 
-import           Prelude
+import           Import
 
-import           Data.Aeson             (Value)
-import           Data.Profunctor        (Profunctor(..))
-
-import           Data.Validator.Failure (Fail)
+import           Data.Profunctor (Profunctor(..))
 
 data Validator schema val err = Validator
     { _embedded :: val -> ([schema], [schema])
@@ -19,7 +15,7 @@ data Validator schema val err = Validator
       -- This is done to allow static detection of loops, though this isn't
       -- implemented yet (though the Draft4 code does do live loop detection
       -- during validation).
-    , _validate :: val -> Value -> [Fail err]
+    , _validate :: val -> Value -> [err]
     } deriving Functor
 
 instance Profunctor (Validator schema) where

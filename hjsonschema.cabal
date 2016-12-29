@@ -1,5 +1,5 @@
 name:               hjsonschema
-version:            1.2.0.2
+version:            1.3.0.0
 synopsis:           JSON Schema library
 homepage:           https://github.com/seagreen/hjsonschema
 license:            MIT
@@ -26,15 +26,15 @@ library
     src
   default-language: Haskell2010
   default-extensions:
+    DeriveFunctor
+    DeriveGeneric
+    GeneralizedNewtypeDeriving
     NoImplicitPrelude
     OverloadedStrings
     ScopedTypeVariables
+    TupleSections
   if impl(ghc >= 8)
     default-extensions: StrictData
-  other-extensions:
-    DeriveFunctor
-    GeneralizedNewtypeDeriving
-    TemplateHaskell
   ghc-options:
     -Wall
   exposed-modules:
@@ -50,7 +50,6 @@ library
     , Data.Validator.Draft4.Number
     , Data.Validator.Draft4.Object
     , Data.Validator.Draft4.String
-    , Data.Validator.Failure
     , Data.Validator.Reference
     , Data.Validator.Types
     , Data.Validator.Utils
@@ -60,17 +59,19 @@ library
   build-depends:
       base                 >= 4.7    && < 4.10
     -- 0.11 is for `.:!`:
-    , aeson                >= 0.11   && < 1.1
+    , aeson                >= 0.11   && < 1.2
     , bytestring           >= 0.10   && < 0.11
     , containers           >= 0.5    && < 0.6
     , file-embed           >= 0.0.8  && < 0.1
     , filepath             >= 1.3    && < 1.5
-    , hjsonpointer         >= 0.3    && < 1.1
+    , hashable             >= 1.2    && < 1.3
+    , hjsonpointer         >= 1.1    && < 1.2
     -- 0.4.30 is for parseUrlThrow:
     , http-client          >= 0.4.30 && < 0.6
     , http-types           >= 0.8    && < 0.10
     , pcre-heavy           >= 1.0    && < 1.1
     , profunctors          >= 5.0    && < 5.3
+    , protolude            >= 0.1.10 && < 1.2
     , QuickCheck           >= 2.8    && < 2.10
     , scientific           >= 0.3    && < 0.4
     , semigroups           >= 0.18   && < 0.19
@@ -89,6 +90,8 @@ test-suite local
     -Wall
     -fno-warn-orphans
   default-extensions:
+    DeriveGeneric
+    NoImplicitPrelude
     OverloadedStrings
     ScopedTypeVariables
   other-modules:
@@ -98,8 +101,8 @@ test-suite local
     , Shared
     -- from ./examples:
     , AlternateSchema
-    , Full
     , Simple
+    , TwoStep
   build-depends:
       base
     , aeson
@@ -108,6 +111,7 @@ test-suite local
     , hjsonpointer
     , hjsonschema
     , profunctors
+    , protolude
     , semigroups
     , text
     , QuickCheck
@@ -129,6 +133,8 @@ test-suite remote
     -Wall
     -fno-warn-orphans
   default-extensions:
+    DeriveGeneric
+    NoImplicitPrelude
     OverloadedStrings
     ScopedTypeVariables
   other-modules:
@@ -144,6 +150,7 @@ test-suite remote
     , hjsonpointer
     , hjsonschema
     , profunctors
+    , protolude
     , semigroups
     , text
     , unordered-containers

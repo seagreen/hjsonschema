@@ -2,10 +2,8 @@
 module Data.JsonSchema.Draft4.Spec where
 
 import           Import
--- Hiding is for GHCs before 7.10:
-import           Prelude                        hiding (concat)
 
-import           Data.Maybe                     (fromMaybe, isNothing)
+import           Data.Maybe                     (fromMaybe)
 import           Data.Profunctor                (Profunctor(..))
 
 import           Data.JsonSchema.Draft4.Failure
@@ -15,33 +13,26 @@ import           Data.JsonSchema.Fetch          (ReferencedSchemas(..),
 import qualified Data.JsonSchema.Fetch          as FE
 import           Data.JsonSchema.Types          (Spec(..))
 import qualified Data.JsonSchema.Types          as JT
-import qualified Data.Validator.Draft4          as D4
-import qualified Data.Validator.Draft4.Any      as AN
+import           Data.Validator.Draft4
 import           Data.Validator.Reference       (updateResolutionScope)
 
 embedded :: Schema -> ([Schema], [Schema])
 embedded s = JT.embedded (d4Spec (ReferencedSchemas s mempty) mempty Nothing) s
 
--- | For internal use.
---
--- A specialized version of 'const' that prevents overwriting
--- useful information.
-toss :: a -> () -> a
-toss = const
-
-validate
+specValidate
     :: ReferencedSchemas Schema
     -> SchemaWithURI Schema
     -> Value
-    -> [Failure]
-validate rs = continueValidating rs (AN.VisitedSchemas [(Nothing, Nothing)])
+    -> [ValidatorFailure]
+specValidate rs =
+    continueValidating rs (VisitedSchemas [(Nothing, Nothing)])
 
 continueValidating
     :: ReferencedSchemas Schema
-    -> AN.VisitedSchemas
+    -> VisitedSchemas
     -> SchemaWithURI Schema
     -> Value
-    -> [Failure]
+    -> [ValidatorFailure]
 continueValidating referenced visited sw =
     JT.validate (d4Spec referenced visited currentScope)
                 (_swSchema sw)
@@ -53,85 +44,85 @@ continueValidating referenced visited sw =
 
 d4Spec
     :: ReferencedSchemas Schema
-    -> AN.VisitedSchemas
+    -> VisitedSchemas
     -> Maybe Text
-    -> Spec Schema ValidatorChain
+    -> Spec Schema ValidatorFailure
 d4Spec referenced visited scope = Spec
-    [ dimap
-        (fmap D4.MultipleOf . _schemaMultipleOf)
-        (toss MultipleOf)
-        D4.multipleOf
+    [ dimap (fmap MultipleOf . _schemaMultipleOf) FailureMultipleOf multipleOfValidator
     , dimap
-        (\s -> D4.MaximumContext (fromMaybe False (_schemaExclusiveMaximum s))
-                 <$> _schemaMaximum s)
-        maxE
-        D4.maximumVal
+        (\s -> Maximum (fromMaybe False (_schemaExclusiveMaximum s)) <$> _schemaMaximum s)
+        FailureMaximum
+        maximumValidator
     , dimap
-        (\s -> D4.MinimumContext (fromMaybe False (_schemaExclusiveMinimum s))
-                 <$> _schemaMinimum s)
-        minE
-        D4.minimumVal
+        (\s -> Minimum (fromMaybe False (_schemaExclusiveMinimum s)) <$> _schemaMinimum s)
+        FailureMinimum
+        minimumValidator
 
-    , dimap (fmap D4.MaxLength . _schemaMaxLength) (toss MaxLength) D4.maxLength
-    , dimap (fmap D4.MinLength . _schemaMinLength) (toss MinLength) D4.minLength
-    , dimap (fmap D4.PatternVal . _schemaPattern) (toss PatternValidator) D4.patternVal
+    , dimap (fmap MaxLength . _schemaMaxLength) FailureMaxLength maxLengthValidator
+    , dimap (fmap MinLength . _schemaMinLength) FailureMinLength minLengthValidator
+    , dimap (fmap PatternValidator . _schemaPattern) FailurePattern patternValidator
 
-    , dimap (fmap D4.MaxItems . _schemaMaxItems) (toss MaxItems) D4.maxItems
-    , dimap (fmap D4.MinItems . _schemaMinItems) (toss MinItems) D4.minItems
-    , dimap (fmap D4.UniqueItems . _schemaUniqueItems) (toss UniqueItems) D4.uniqueItems
+    , dimap (fmap MaxItems . _schemaMaxItems) FailureMaxItems maxItemsValidator
+    , dimap (fmap MinItems . _schemaMinItems) FailureMinItems minItemsValidator
+    , dimap (fmap UniqueItems . _schemaUniqueItems) FailureUniqueItems uniqueItemsValidator
     , dimap
-        (\s -> D4.ItemsContext (_schemaAdditionalItems s) <$> _schemaItems s)
-        itemsE
-        (D4.items descend)
-    , lmap (fmap D4.AdditionalItemsContext . _schemaAdditionalItems) D4.additionalItemsEmbedded
-    , lmap (fmap D4.Definitions . _schemaDefinitions) D4.definitionsEmbedded
-
-    , dimap (fmap D4.MaxProperties . _schemaMaxProperties) (toss MaxProperties) D4.maxProperties
-    , dimap (fmap D4.MinProperties . _schemaMinProperties) (toss MinProperties) D4.minProperties
-    , dimap (fmap D4.RequiredContext . _schemaRequired) (toss Required) D4.required
-    , dimap (fmap D4.DependenciesContext . _schemaDependencies) depsE (D4.dependencies descend)
-    , dimap
-        (\s -> D4.PropertiesContext
-                 (_schemaPatternProperties s)
-                 (_schemaAdditionalProperties s)
-                 <$> _schemaProperties s)
-        propE
-        (D4.properties descend)
-    , dimap
-        (\s -> D4.PatternPropertiesContext
-                 (isNothing (_schemaProperties s))
-                 (_schemaAdditionalProperties s)
-                 <$> _schemaPatternProperties s)
-        patPropE
-        (D4.patternProperties descend)
-    , dimap
-        (\s -> D4.AdditionalPropertiesContext
-                 (isNothing (_schemaProperties s)
-                    && isNothing (_schemaPatternProperties s))
-                 <$> _schemaAdditionalProperties s)
-        addPropE
-        (D4.additionalProperties descend)
+        (\s -> ItemsRelated
+                   { _irItems      = _schemaItems s
+                   , _irAdditional = _schemaAdditionalItems s
+                   })
+        (\err -> case err of
+                     IRInvalidItems e      -> FailureItems e
+                     IRInvalidAdditional e -> FailureAdditionalItems e)
+        (itemsRelatedValidator descend)
+    , lmap (fmap Definitions . _schemaDefinitions) definitionsEmbedded
 
     , dimap
-        (\s -> D4.Ref <$> _schemaRef s)
-        refE
-        (D4.ref visited scope (FE.getReference referenced) refVal)
-    , dimap (fmap D4.EnumContext . _schemaEnum) (toss Enum) D4.enumVal
-    , dimap (fmap D4.TypeContext . _schemaType) (toss TypeValidator) D4.typeVal
-    , dimap (fmap D4.AllOf . _schemaAllOf) AllOf (D4.allOf lateral)
-    , dimap (fmap D4.AnyOf . _schemaAnyOf) AnyOf (D4.anyOf lateral)
-    , dimap (fmap D4.OneOf . _schemaOneOf) oneOfE (D4.oneOf lateral)
-    , dimap (fmap D4.NotVal . _schemaNot) (toss NotValidator) (D4.notVal lateral)
+        (fmap MaxProperties . _schemaMaxProperties)
+        FailureMaxProperties
+        maxPropertiesValidator
+    , dimap
+        (fmap MinProperties . _schemaMinProperties)
+        FailureMinProperties
+        minPropertiesValidator
+    , dimap (fmap Required . _schemaRequired) FailureRequired requiredValidator
+    , dimap
+        (fmap DependenciesValidator . _schemaDependencies)
+        FailureDependencies
+        (dependenciesValidator descend)
+    , dimap
+        (\s -> PropertiesRelated
+                   { _propProperties = _schemaProperties s
+                   , _propPattern    = _schemaPatternProperties s
+                   , _propAdditional = _schemaAdditionalProperties s
+                   })
+        FailurePropertiesRelated
+        (propertiesRelatedValidator descend)
+
+    , dimap
+        (\s -> Ref <$> _schemaRef s)
+        FailureRef
+        (refValidator visited scope (FE.getReference referenced) getRef)
+    , dimap (fmap EnumValidator . _schemaEnum) FailureEnum enumValidator
+    , dimap (fmap TypeContext . _schemaType) FailureType typeValidator
+    , dimap (fmap AllOf . _schemaAllOf) FailureAllOf (allOfValidator lateral)
+    , dimap (fmap AnyOf . _schemaAnyOf) FailureAnyOf (anyOfValidator lateral)
+    , dimap (fmap OneOf . _schemaOneOf) FailureOneOf (oneOfValidator lateral)
+    , dimap (fmap NotValidator . _schemaNot) FailureNot (notValidator lateral)
     ]
   where
-    refVal :: AN.VisitedSchemas -> Maybe Text -> Schema -> Value -> [Failure]
-    refVal newVisited newScope schema =
+    getRef
+        :: VisitedSchemas
+        -> Maybe Text
+        -> Schema
+        -> Value
+        -> [ValidatorFailure]
+    getRef newVisited newScope schema =
         continueValidating referenced newVisited (SchemaWithURI schema newScope)
 
-    descend :: Schema -> Value -> [Failure]
+    descend :: Schema -> Value -> [ValidatorFailure]
     descend schema =
         continueValidating referenced mempty (SchemaWithURI schema scope)
 
-    lateral :: Schema -> Value -> [Failure]
+    lateral :: Schema -> Value -> [ValidatorFailure]
     lateral schema =
         continueValidating referenced visited (SchemaWithURI schema scope)

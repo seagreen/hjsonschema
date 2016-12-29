@@ -2,52 +2,100 @@
 module Data.Validator.Draft4.Array where
 
 import           Import
-import           Prelude
 
-import           Control.Monad
-import qualified Data.Aeson.Pointer     as AP
-import qualified Data.Text              as T
-import qualified Data.Vector            as V
-import           Text.Read              (readMaybe)
+import qualified Data.List.NonEmpty   as NE
+import qualified Data.Vector          as V
+import qualified JSONPointer          as JP
 
-import           Data.Validator.Failure (Fail(..), prependToPath)
-import           Data.Validator.Utils   (allUniqueValues)
+import           Data.Validator.Utils (allUniqueValues)
 
 --------------------------------------------------
 -- * maxItems
 --------------------------------------------------
 
+newtype MaxItems
+    = MaxItems { _unMaxItems :: Int }
+    deriving (Eq, Show)
+
+instance FromJSON MaxItems where
+    parseJSON = withObject "MaxItems" $ \o ->
+        MaxItems <$> o .: "maxItems"
+
+data MaxItemsInvalid
+    = MaxItemsInvalid MaxItems (Vector Value)
+    deriving (Eq, Show)
+
 -- | The spec requires @"maxItems"@ to be non-negative.
-maxItems :: Int -> Vector Value -> Maybe (Fail ())
-maxItems n xs
+maxItemsVal :: MaxItems -> Vector Value -> Maybe MaxItemsInvalid
+maxItemsVal a@(MaxItems n) xs
     | n < 0           = Nothing
-    | V.length xs > n = Just (Failure () (toJSON n) mempty (Array xs))
+    | V.length xs > n = Just (MaxItemsInvalid a xs)
     | otherwise       = Nothing
 
 --------------------------------------------------
 -- * minItems
 --------------------------------------------------
 
+newtype MinItems
+    = MinItems { _unMinItems :: Int }
+    deriving (Eq, Show)
+
+instance FromJSON MinItems where
+    parseJSON = withObject "MinItems" $ \o ->
+        MinItems <$> o .: "minItems"
+
+data MinItemsInvalid
+    = MinItemsInvalid MinItems (Vector Value)
+    deriving (Eq, Show)
+
 -- | The spec requires @"minItems"@ to be non-negative.
-minItems :: Int -> Vector Value -> Maybe (Fail ())
-minItems n xs
+minItemsVal :: MinItems -> Vector Value -> Maybe MinItemsInvalid
+minItemsVal a@(MinItems n) xs
     | n < 0           = Nothing
-    | V.length xs < n = Just (Failure () (toJSON n) mempty (Array xs))
+    | V.length xs < n = Just (MinItemsInvalid a xs)
     | otherwise       = Nothing
 
 --------------------------------------------------
 -- * uniqueItems
 --------------------------------------------------
 
-uniqueItems :: Bool -> Vector Value -> Maybe (Fail ())
-uniqueItems True xs
+newtype UniqueItems
+    = UniqueItems { _unUniqueItems :: Bool }
+    deriving (Eq, Show)
+
+instance FromJSON UniqueItems where
+    parseJSON = withObject "UniqueItems" $ \o ->
+        UniqueItems <$> o .: "uniqueItems"
+
+data UniqueItemsInvalid
+    = UniqueItemsInvalid (Vector Value)
+    deriving (Eq, Show)
+
+uniqueItemsVal :: UniqueItems -> Vector Value -> Maybe UniqueItemsInvalid
+uniqueItemsVal (UniqueItems True) xs
    | allUniqueValues xs = Nothing
-   | otherwise          = Just (Failure () (Bool True) mempty (Array xs))
-uniqueItems False _ = Nothing
+   | otherwise          = Just (UniqueItemsInvalid xs)
+uniqueItemsVal (UniqueItems False) _ = Nothing
 
 --------------------------------------------------
 -- * items
 --------------------------------------------------
+
+data ItemsRelated schema = ItemsRelated
+    { _irItems      :: Maybe (Items schema)
+    , _irAdditional :: Maybe (AdditionalItems schema)
+    } deriving (Eq, Show)
+
+instance FromJSON schema => FromJSON (ItemsRelated schema) where
+    parseJSON = withObject "ItemsRelated" $ \o -> ItemsRelated
+        <$> o .:! "items"
+        <*> o .:! "additionalItems"
+
+emptyItems :: ItemsRelated schema
+emptyItems = ItemsRelated
+    { _irItems      = Nothing
+    , _irAdditional = Nothing
+    }
 
 data Items schema
     = ItemsObject schema
@@ -67,82 +115,73 @@ instance Arbitrary schema => Arbitrary (Items schema) where
                       , ItemsArray <$> arbitrary
                       ]
 
-data ItemsInvalid err
-    = Items err
-    | AdditionalItemsBoolInvalid
-    | AdditionalItemsObjectInvalid err
+data ItemsRelatedInvalid err
+    = IRInvalidItems      (ItemsInvalid err)
+    | IRInvalidAdditional (AdditionalItemsInvalid err)
     deriving (Eq, Show)
 
-items
+data ItemsInvalid err
+    = ItemsObjectInvalid (NonEmpty (JP.Index, NonEmpty err))
+    | ItemsArrayInvalid  (NonEmpty (JP.Index, NonEmpty err))
+    deriving (Eq, Show)
+
+-- | @"additionalItems"@ only matters if @"items"@ exists
+-- and is a JSON Array.
+itemsRelatedVal
     :: forall err schema.
-       (schema -> Value -> [Fail err])
-    -> Maybe (AdditionalItems schema)
+       (schema -> Value -> [err])
+    -> ItemsRelated schema
+    -> Vector Value
+    -> [ItemsRelatedInvalid err] -- NOTE: 'Data.These' would help here.
+itemsRelatedVal f a xs =
+    let (itemsFailure, remaining) = case _irItems a of
+                                        Nothing -> (Nothing, mempty)
+                                        Just b  -> itemsVal f b xs
+        additionalFailure = (\b -> additionalItemsVal f b remaining)
+                        =<< _irAdditional a
+    in catMaybes [ IRInvalidItems <$> itemsFailure
+                 , IRInvalidAdditional <$> additionalFailure
+                 ]
+
+-- | Internal.
+--
+-- This is because 'itemsRelated' handles @"items"@ validation.
+itemsVal
+    :: forall err schema.
+       (schema -> Value -> [err])
     -> Items schema
     -> Vector Value
-    -> [Fail (ItemsInvalid err)]
-items f _ (ItemsObject subSchema) xs =
-    zip [0..] (V.toList xs) >>= g
+    -> (Maybe (ItemsInvalid err), [(JP.Index, Value)])
+       -- ^ The second item in the tuple is the elements of the original
+       -- JSON Array still remaining to be checked by @"additionalItems"@.
+itemsVal f a xs =
+    case a of
+        ItemsObject subSchema ->
+            case NE.nonEmpty (mapMaybe (validateElem subSchema) indexed) of
+                Nothing   -> (Nothing, mempty)
+                Just errs -> (Just (ItemsObjectInvalid errs), mempty)
+        ItemsArray subSchemas ->
+            let remaining = drop (length subSchemas) indexed
+                res = catMaybes (zipWith validateElem subSchemas indexed)
+            in case NE.nonEmpty res of
+                Nothing   -> (Nothing, remaining)
+                Just errs -> (Just (ItemsArrayInvalid errs), remaining)
   where
-    g :: (Int, Value) -> [Fail (ItemsInvalid err)]
-    g (index,x) = fmap Items
-                . prependToPath (AP.Token (T.pack (show index)))
-              <$> f subSchema x
+    indexed :: [(JP.Index, Value)]
+    indexed = zip (JP.Index <$> [0..]) (V.toList xs)
 
-items f mAdditional (ItemsArray subSchemas) xs =
-    itemFailures <> additionalItemFailures
-  where
-    indexedValues :: [(Int, Value)]
-    indexedValues = zip [0..] (V.toList xs)
-
-    itemFailures :: [Fail (ItemsInvalid err)]
-    itemFailures = join (zipWith g subSchemas indexedValues)
-      where
-        g :: schema -> (Int, Value) -> [Fail (ItemsInvalid err)]
-        g schema (index,x) = fmap Items
-                           . prependToPath (AP.Token (T.pack (show index)))
-                         <$> f schema x
-
-    additionalItemFailures :: [Fail (ItemsInvalid err)]
-    additionalItemFailures =
-        case mAdditional of
-            Nothing  -> mempty
-            Just adi -> fmap correctName
-                      . correctIndexes
-                    <$> additionalItems f adi extras
-      where
-        -- It's not great that we convert back to Vector again.
-        extras :: Vector Value
-        extras = V.fromList . fmap snd
-               . drop (length subSchemas) $ indexedValues
-
-        -- Since 'additionalItems' only sees part of the array, but starts
-        -- indexing from zero, we need to modify the paths it reports to
-        -- represent invalid data so they actually represent the correct
-        -- offsets.
-        correctIndexes
-          :: Fail (AdditionalItemsInvalid err)
-          -> Fail (AdditionalItemsInvalid err)
-        correctIndexes (Failure a b c d) = Failure a b (fixIndex c) d
-          where
-            fixIndex :: AP.Pointer -> AP.Pointer
-            fixIndex (AP.Pointer (tok:toks)) =
-                case readMaybe . T.unpack . AP._unToken $ tok of
-                    Nothing -> AP.Pointer $ tok:toks
-                    Just n  -> AP.Pointer $
-                        (AP.Token . T.pack . show $ n + length subSchemas):toks
-            fixIndex (AP.Pointer []) = AP.Pointer []
-
-        correctName :: AdditionalItemsInvalid err -> ItemsInvalid err
-        correctName AdditionalBoolInvalid = AdditionalItemsBoolInvalid
-        correctName (AdditionalObjectInvalid err) =
-            AdditionalItemsObjectInvalid err
+    validateElem
+        :: schema
+        -> (JP.Index, Value)
+        -> Maybe (JP.Index, NonEmpty err)
+    validateElem schema (index,x) = (index,) <$> NE.nonEmpty (f schema x)
 
 --------------------------------------------------
 -- * additionalItems
 --------------------------------------------------
 
 data AdditionalItems schema
-    = AdditionalBool Bool
+    = AdditionalBool   Bool
     | AdditionalObject schema
     deriving (Eq, Show)
 
@@ -160,25 +199,26 @@ instance Arbitrary schema => Arbitrary (AdditionalItems schema) where
                       ]
 
 data AdditionalItemsInvalid err
-    = AdditionalBoolInvalid
-    | AdditionalObjectInvalid err
+    = AdditionalItemsBoolInvalid   (NonEmpty (JP.Index, Value))
+    | AdditionalItemsObjectInvalid (NonEmpty (JP.Index, NonEmpty err))
     deriving (Eq, Show)
 
-additionalItems
+-- | Internal.
+--
+-- This is because 'itemsRelated' handles @"additionalItems"@ validation.
+additionalItemsVal
     :: forall err schema.
-       (schema -> Value -> [Fail err])
+       (schema -> Value -> [err])
     -> AdditionalItems schema
-    -> Vector Value
-    -> [Fail (AdditionalItemsInvalid err)]
-additionalItems _ (AdditionalBool b) xs
-    | b               = mempty
-    | V.length xs > 0 = pure (Failure AdditionalBoolInvalid (Bool b)
-                                      mempty (toJSON xs))
-    | otherwise       = mempty
-additionalItems f (AdditionalObject subSchema) xs =
-    zip [0..] (V.toList xs) >>= g
-  where
-    g :: (Int, Value) -> [Fail (AdditionalItemsInvalid err)]
-    g (index,x) = fmap AdditionalObjectInvalid
-                . prependToPath (AP.Token (T.pack (show index)))
-              <$> f subSchema x
+    -> [(JP.Index, Value)]
+       -- ^ The elements remaining to validate after the ones covered by
+       -- @"items"@ have been removed.
+    -> Maybe (AdditionalItemsInvalid err)
+additionalItemsVal _ (AdditionalBool True) _ = Nothing
+additionalItemsVal _ (AdditionalBool False) xs =
+    AdditionalItemsBoolInvalid <$> NE.nonEmpty xs
+additionalItemsVal f (AdditionalObject subSchema) xs =
+    let res = mapMaybe
+                  (\(index,x) -> (index,) <$> NE.nonEmpty (f subSchema x))
+                  xs
+    in AdditionalItemsObjectInvalid <$> NE.nonEmpty res

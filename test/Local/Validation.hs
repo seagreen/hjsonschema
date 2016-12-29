@@ -1,12 +1,12 @@
 
 module Local.Validation where
 
-import           Control.Applicative
+import           Protolude              hiding (msg)
+
 import           Data.Aeson
 import qualified Data.Aeson             as AE
 import qualified Data.HashMap.Strict    as HM
-import           Data.Monoid
-import           Data.Text              (Text)
+import           Data.String            (String)
 import           Test.Hspec
 
 import           Data.JsonSchema.Draft4

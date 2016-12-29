@@ -1,17 +1,16 @@
 
 module Data.JsonSchema.Draft4.Schema where
 
-import           Import
-import           Prelude
+import           Import                hiding (mapMaybe)
 
-import qualified Data.HashMap.Strict          as HM
-import           Data.List.NonEmpty           (NonEmpty)
-import           Data.Maybe                   (fromJust, isJust)
+import qualified Data.HashMap.Strict   as HM
+import           Data.List.NonEmpty    (NonEmpty)
+import           Data.Maybe            (fromJust, isJust)
 import           Data.Scientific
+import qualified Data.Set              as Set
+import qualified Data.Text             as T
 
-import qualified Data.Validator.Draft4.Any    as AN
-import qualified Data.Validator.Draft4.Array  as AR
-import qualified Data.Validator.Draft4.Object as OB
+import qualified Data.Validator.Draft4 as D4
 import           Data.Validator.Utils
 
 data Schema = Schema
@@ -26,6 +25,10 @@ data Schema = Schema
     -- contain schemas anywhere (not just in "definitions" or any
     -- of the other official keys) we save any leftover key/value
     -- pairs not covered by them here.
+    --
+    -- TODO: This field is the source of most of the complication in this
+    -- module and needs to be removed. It should be doable, though it will
+    -- involve some modification to the fetching code.
 
     , _schemaMultipleOf           :: Maybe Scientific
     , _schemaMaximum              :: Maybe Scientific
@@ -40,22 +43,22 @@ data Schema = Schema
     , _schemaMaxItems             :: Maybe Int
     , _schemaMinItems             :: Maybe Int
     , _schemaUniqueItems          :: Maybe Bool
-    , _schemaItems                :: Maybe (AR.Items Schema)
+    , _schemaItems                :: Maybe (D4.Items Schema)
     -- Note that '_schemaAdditionalItems' is left out of 'runValidate'
     -- because its functionality is handled by '_schemaItems'. It always
     -- validates data unless 'Items' is present.
-    , _schemaAdditionalItems      :: Maybe (AR.AdditionalItems Schema)
+    , _schemaAdditionalItems      :: Maybe (D4.AdditionalItems Schema)
 
     , _schemaMaxProperties        :: Maybe Int
     , _schemaMinProperties        :: Maybe Int
-    , _schemaRequired             :: Maybe OB.Required
-    , _schemaDependencies         :: Maybe (HashMap Text (OB.Dependency Schema))
+    , _schemaRequired             :: Maybe (Set Text)
+    , _schemaDependencies         :: Maybe (HashMap Text (D4.Dependency Schema))
     , _schemaProperties           :: Maybe (HashMap Text Schema)
     , _schemaPatternProperties    :: Maybe (HashMap Text Schema)
-    , _schemaAdditionalProperties :: Maybe (OB.AdditionalProperties Schema)
+    , _schemaAdditionalProperties :: Maybe (D4.AdditionalProperties Schema)
 
-    , _schemaEnum                 :: Maybe AN.EnumVal
-    , _schemaType                 :: Maybe AN.TypeVal
+    , _schemaEnum                 :: Maybe (NonEmpty Value)
+    , _schemaType                 :: Maybe D4.TypeValidator
     , _schemaAllOf                :: Maybe (NonEmpty Schema)
     , _schemaAnyOf                :: Maybe (NonEmpty Schema)
     , _schemaOneOf                :: Maybe (NonEmpty Schema)
@@ -262,9 +265,9 @@ instance Arbitrary Schema where
             a  <- maybeGen arbitraryText
             b  <- maybeGen arbitraryText
             c  <- maybeGen arbitraryText
-               -- NOTE: The next two fields are empty to generate cleaner schemas,
-               -- but note that this means we don't test e.g. the invertability
-               -- of these fields.
+               -- NOTE: The next two fields are empty to generate cleaner
+               -- schemas, but note that this means we don't test the
+               -- invertability of these fields.
             d  <- pure Nothing -- _schemaDefinitions
             e  <- pure mempty -- _otherPairs
 
@@ -286,13 +289,14 @@ instance Arbitrary Schema where
 
             s  <- maybeGen (getPositive <$> arbitrary)
             t  <- maybeGen (getPositive <$> arbitrary)
-            u  <- arbitrary
+            u  <- maybeGen (Set.map T.pack <$> arbitrary)
             v  <- maybeRecurse n arbitraryHashMap
             w  <- maybeRecurse n arbitraryHashMap
             x  <- maybeRecurse n arbitraryHashMap
             y  <- maybeRecurse n arbitrary
 
-            z  <- arbitrary
+            z  <- maybeRecurse n ( fmap _unArbitraryValue . _unNonEmpty'
+                               <$> arbitrary)
             a2 <- arbitrary
             b2 <- maybeRecurse n (_unNonEmpty' <$> arbitrary)
             c2 <- maybeRecurse n (_unNonEmpty' <$> arbitrary)

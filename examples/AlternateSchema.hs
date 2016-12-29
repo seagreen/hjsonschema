@@ -5,34 +5,28 @@
 -- to copy this module instead of the 'Data.JsonSchema.Draft4'. While it's
 -- less convenient to write schemas in Haskell without a record type, you
 -- can get the implementation finished with far fewer lines of code.
---
--- Note that this module imports the the failure sum type and failure related
--- helper functions from the library. If you're implementing a custom schema
--- with different error types from JSON Schema Draft 4 you'll have to make
--- your own.
 
 module AlternateSchema where
 
-import           Data.Aeson                     (FromJSON(..), Value(..),
-                                                 decode)
-import qualified Data.Aeson                     as AE
-import qualified Data.ByteString.Lazy           as LBS
-import qualified Data.HashMap.Strict            as HM
-import           Data.Maybe                     (fromMaybe)
-import           Data.Monoid
-import           Data.Profunctor                (Profunctor (..))
-import           Data.Text                      (Text)
+import           Protolude
 
-import           Data.JsonSchema.Draft4         (metaSchemaBytes)
-import           Data.JsonSchema.Draft4.Failure
-import           Data.JsonSchema.Fetch          (ReferencedSchemas(..),
-                                                 SchemaWithURI(..))
-import qualified Data.JsonSchema.Fetch          as FE
-import           Data.JsonSchema.Types          (Schema(..), Spec(..))
-import qualified Data.JsonSchema.Types          as JT
-import qualified Data.Validator.Draft4          as D4
-import qualified Data.Validator.Draft4.Any      as AN
-import           Data.Validator.Reference       (updateResolutionScope)
+import           Data.Aeson               (FromJSON(..), Value(..),
+                                           decode)
+import qualified Data.Aeson               as AE
+import qualified Data.ByteString.Lazy     as LBS
+import qualified Data.HashMap.Strict      as HM
+import           Data.Maybe               (fromMaybe)
+import           Data.Profunctor          (Profunctor (..))
+
+import           Data.JsonSchema.Draft4   (ValidatorFailure(..),
+                                           metaSchemaBytes)
+import           Data.JsonSchema.Fetch    (ReferencedSchemas(..),
+                                           SchemaWithURI(..))
+import qualified Data.JsonSchema.Fetch    as FE
+import           Data.JsonSchema.Types    (Schema(..), Spec(..))
+import qualified Data.JsonSchema.Types    as JT
+import qualified Data.Validator.Draft4    as D4
+import           Data.Validator.Reference (updateResolutionScope)
 
 --------------------------------------------------
 -- * Basic fetching tools
@@ -44,12 +38,13 @@ referencesViaHTTP
 referencesViaHTTP = FE.referencesViaHTTP' draft4FetchInfo
 
 draft4FetchInfo :: FE.FetchInfo Schema
-draft4FetchInfo = FE.FetchInfo embedded (get "id") (get "$ref")
+draft4FetchInfo = FE.FetchInfo embedded (lookup "id") (lookup "$ref")
   where
-    get :: Text -> Schema -> Maybe Text
-    get k (Schema s) = case HM.lookup k s of
-                           Just (String t) -> Just t
-                           _ -> Nothing
+    lookup :: Text -> Schema -> Maybe Text
+    lookup k (Schema s) =
+        case HM.lookup k s of
+            Just (String t) -> Just t
+            _               -> Nothing
 
 embedded :: Schema -> ([Schema], [Schema])
 embedded s = JT.embedded (d4Spec (ReferencedSchemas s mempty) mempty Nothing) s
@@ -63,26 +58,26 @@ validate
     -> Maybe Text
     -> Schema
     -> Value
-    -> [Failure]
-validate rs = continueValidating rs (AN.VisitedSchemas [(Nothing, Nothing)])
+    -> [ValidatorFailure]
+validate rs = continueValidating rs (D4.VisitedSchemas [(Nothing, Nothing)])
 
 -- A schema for schemas themselves, using @src/draft4.json@ which is loaded
 -- at compile time.
 metaSchema :: Schema
 metaSchema =
-      fromMaybe (error "Schema decode failed (this should never happen)")
+      fromMaybe (panic "Schema decode failed (this should never happen)")
     . decode
     . LBS.fromStrict
     $ metaSchemaBytes
 
-checkSchema :: Schema -> [Failure]
+checkSchema :: Schema -> [ValidatorFailure]
 checkSchema = validate referenced Nothing metaSchema . Object . _unSchema
   where
     referenced :: ReferencedSchemas Schema
     referenced = ReferencedSchemas
                      metaSchema
                      (HM.singleton "http://json-schema.org/draft-04/schema"
-                         metaSchema)
+                                   metaSchema)
 
 --------------------------------------------------
 -- * Spec
@@ -90,11 +85,11 @@ checkSchema = validate referenced Nothing metaSchema . Object . _unSchema
 
 continueValidating
     :: ReferencedSchemas Schema
-    -> AN.VisitedSchemas
+    -> D4.VisitedSchemas
     -> Maybe Text
     -> Schema
     -> Value
-    -> [Failure]
+    -> [ValidatorFailure]
 continueValidating referenced visited mURI sc =
     JT.validate (d4Spec referenced visited newScope) sc
   where
@@ -108,39 +103,52 @@ continueValidating referenced visited mURI sc =
 
 d4Spec
     :: ReferencedSchemas Schema
-    -> AN.VisitedSchemas
+    -> D4.VisitedSchemas
     -> Maybe Text
-    -> Spec Schema ValidatorChain
+    -> Spec Schema ValidatorFailure
+       -- ^ Here we reuses 'ValidatorFailure' from
+       -- 'Data.JsonSchema.Draft4.Failure'. If your validators have different
+       -- failure possibilities you'll need to create your own validator
+       -- failure type.
 d4Spec referenced visited scope =
     Spec
-        [ dimap f (const MultipleOf) D4.multipleOf
-        , dimap f maxE D4.maximumVal
-        , dimap f minE D4.minimumVal
+        [ dimap f FailureMultipleOf D4.multipleOfValidator
+        , dimap f FailureMaximum D4.maximumValidator
+        , dimap f FailureMinimum D4.minimumValidator
 
-        , dimap f (const MaxLength) D4.maxLength
-        , dimap f (const MinLength) D4.minLength
-        , dimap f (const PatternValidator) D4.patternVal
+        , dimap f FailureMaxLength D4.maxLengthValidator
+        , dimap f FailureMinLength D4.minLengthValidator
+        , dimap f FailurePattern D4.patternValidator
 
-        , dimap f (const MaxItems) D4.maxItems
-        , dimap f (const MinItems) D4.minItems
-        , dimap f (const UniqueItems) D4.uniqueItems
-        , dimap f itemsE (D4.items descend)
+        , dimap f FailureMaxItems D4.maxItemsValidator
+        , dimap f FailureMinItems D4.minItemsValidator
+        , dimap f FailureUniqueItems D4.uniqueItemsValidator
+        , dimap
+            (fromMaybe D4.emptyItems . f)
+            (\err -> case err of
+                         D4.IRInvalidItems e      -> FailureItems e
+                         D4.IRInvalidAdditional e -> FailureAdditionalItems e)
+            (D4.itemsRelatedValidator descend)
 
-        , dimap f (const MaxProperties) D4.maxProperties
-        , dimap f (const MinProperties) D4.minProperties
-        , dimap f (const Required) D4.required
-        , dimap f depsE (D4.dependencies descend)
-        , dimap f propE (D4.properties descend)
-        , dimap f patPropE (D4.patternProperties descend)
-        , dimap f addPropE (D4.additionalProperties descend)
+        , dimap f FailureMaxProperties D4.maxPropertiesValidator
+        , dimap f FailureMinProperties D4.minPropertiesValidator
+        , dimap f FailureRequired D4.requiredValidator
+        , dimap f FailureDependencies (D4.dependenciesValidator descend)
+        , dimap
+            (fromMaybe D4.emptyProperties . f)
+            FailurePropertiesRelated
+            (D4.propertiesRelatedValidator descend)
 
-        , dimap f refE (D4.ref visited scope (FE.getReference referenced) refVal)
-        , dimap f (const Enum) D4.enumVal
-        , dimap f (const TypeValidator) D4.typeVal
-        , dimap f AllOf (D4.allOf lateral)
-        , dimap f AnyOf (D4.anyOf lateral)
-        , dimap f oneOfE (D4.oneOf lateral)
-        , dimap f (const NotValidator) (D4.notVal lateral)
+        , dimap
+            f
+            FailureRef
+            (D4.refValidator visited scope (FE.getReference referenced) getRef)
+        , dimap f FailureEnum D4.enumValidator
+        , dimap f FailureType D4.typeValidator
+        , dimap f FailureAllOf (D4.allOfValidator lateral)
+        , dimap f FailureAnyOf (D4.anyOfValidator lateral)
+        , dimap f FailureOneOf (D4.oneOfValidator lateral)
+        , dimap f FailureNot (D4.notValidator lateral)
         ]
   where
     f :: FromJSON a => Schema -> Maybe a
@@ -148,13 +156,18 @@ d4Spec referenced visited scope =
                        AE.Error _   -> Nothing
                        AE.Success b -> Just b
 
-    -- 'Maybe Text' is the URI the refernced schema is fetch from,
+    -- 'Maybe Text' is the URI the referenced schema is fetched from,
     -- this probably needs a 'newtype' wrapper.
-    refVal :: AN.VisitedSchemas -> Maybe Text -> Schema -> Value -> [Failure]
-    refVal = continueValidating referenced
+    getRef
+        :: D4.VisitedSchemas
+        -> Maybe Text
+        -> Schema
+        -> Value
+        -> [ValidatorFailure]
+    getRef = continueValidating referenced
 
-    descend :: Schema -> Value -> [Failure]
+    descend :: Schema -> Value -> [ValidatorFailure]
     descend = continueValidating referenced mempty scope
 
-    lateral :: Schema -> Value -> [Failure]
+    lateral :: Schema -> Value -> [ValidatorFailure]
     lateral = continueValidating referenced visited scope

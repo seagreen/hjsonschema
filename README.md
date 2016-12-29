@@ -1,12 +1,16 @@
 ![hjsonschema logo](./logo.jpg)
 
-A Haskell implementation of the current [JSON Schema](http://json-schema.org/) specification (Draft 4).
+A Haskell implementation of the most commonly used [JSON Schema](http://json-schema.org/) specification ([Draft 4](https://github.com/json-schema-org/json-schema-spec/wiki/Specification-Links#draft-4)).
 
 [Hackage](https://hackage.haskell.org/package/hjsonschema) / [GitHub](https://github.com/seagreen/hjsonschema) / [Travis CI](https://travis-ci.org/seagreen/hjsonschema)
 
-Requires [pcre](http://www.pcre.org/) (`pkgs.pcre` in Nixpkgs).
+# Notes
 
-NOTE: Schemas with circular references can cause infinite loops. hjsonschema does loop detection but it may not be solid yet -- please open an issue if you find a situation where it fails.
++ As of 2017 [json-schema-org](https://github.com/json-schema-org/json-schema-spec) has begun releasing new drafts of the standard. Once this work stabilizes `hjsonschema` will add coverage for the latest draft.
+
++ Requires [pcre](http://www.pcre.org/) (`pkgs.pcre` in Nixpkgs).
+
++ Schemas with circular references can cause infinite loops. hjsonschema does loop detection but it may not be solid yet -- please open an issue if you find a situation where it fails.
 
 # Example
 
@@ -46,7 +50,7 @@ Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP
 
 + Currently doesn't support the optional `"format"` validators.
 
-## Notes
+## Vendoring
 
 + `JSON-Schema-Test-Suite` is vendored from commit # aabcb3427745ade7a0b4d49ff016ad7eda8b898b [here](https://github.com/json-schema-org/JSON-Schema-Test-Suite).
 

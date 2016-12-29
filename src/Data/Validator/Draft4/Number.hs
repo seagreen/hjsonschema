@@ -2,64 +2,83 @@
 module Data.Validator.Draft4.Number where
 
 import           Import
-import           Prelude
 
-import           Data.Fixed             (mod')
-import           Data.Scientific        (Scientific)
-
-import           Data.Validator.Failure (Fail(..))
+import           Data.Fixed      (mod')
+import           Data.Scientific (Scientific)
 
 --------------------------------------------------
 -- * multipleOf
 --------------------------------------------------
 
+newtype MultipleOf
+    = MultipleOf { _unMultipleOf :: Scientific }
+    deriving (Eq, Show)
+
+instance FromJSON MultipleOf where
+    parseJSON = withObject "MultipleOf" $ \o ->
+        MultipleOf <$> o .: "multipleOf"
+
+data MultipleOfInvalid
+    = MultipleOfInvalid MultipleOf Scientific
+    deriving (Eq, Show)
+
 -- | The spec requires @"multipleOf"@ to be positive.
-multipleOf :: Scientific -> Scientific -> Maybe (Fail ())
-multipleOf n x
+multipleOfVal :: MultipleOf -> Scientific -> Maybe MultipleOfInvalid
+multipleOfVal a@(MultipleOf n) x
     | n <= 0          = Nothing
-    | x `mod'` n /= 0 = Just (Failure () (toJSON n) mempty (Number x))
+    | x `mod'` n /= 0 = Just (MultipleOfInvalid a x)
     | otherwise       = Nothing
 
 --------------------------------------------------
 -- * maximum
 --------------------------------------------------
 
+data Maximum = Maximum
+    { _maximumExclusive :: Bool
+    , _maximumValue     :: Scientific
+    } deriving (Eq, Show)
+
+instance FromJSON Maximum where
+    parseJSON = withObject "Maximum" $ \o -> Maximum
+        <$> o .:! "exclusiveMaximum" .!= False
+        <*> o .: "maximum"
+
 data MaximumInvalid
-    = Maximum
-    | ExclusiveMaximum
+    = MaximumInvalid Maximum Scientific
     deriving (Eq, Show)
 
 maximumVal
-    :: Bool
+    :: Maximum
     -> Scientific
-    -> Scientific
-    -> Maybe (Fail MaximumInvalid)
-maximumVal exclusive n x
-    | x `greaterThan` n = Just (Failure err (toJSON n) mempty (Number x))
-    | otherwise         = Nothing
-  where
-    (greaterThan, err) = if exclusive
-                             then ((>=), ExclusiveMaximum)
-                             else ((>), Maximum)
+    -> Maybe MaximumInvalid
+maximumVal a@(Maximum exclusive n) x
+    | exclusive && x >= n = Just (MaximumInvalid a x)
+    | x > n               = Just (MaximumInvalid a x)
+    | otherwise           = Nothing
 
 --------------------------------------------------
 -- * minimum
 --------------------------------------------------
 
+data Minimum = Minimum
+    { _minimumExclusive :: Bool
+    , _minimumValue     :: Scientific
+    } deriving (Eq, Show)
+
+instance FromJSON Minimum where
+    parseJSON = withObject "Minimum" $ \o -> Minimum
+        <$> o .:! "exclusiveMinimum" .!= False
+        <*> o .: "minimum"
+
 data MinimumInvalid
-    = Minimum
-    | ExclusiveMinimum
+    = MinimumInvalid Minimum Scientific
     deriving (Eq, Show)
 
 minimumVal
-    :: Bool
+    :: Minimum
     -> Scientific
-    -> Scientific
-    -> Maybe (Fail MinimumInvalid)
-minimumVal exclusive n x
-    | x `lessThan` n = Just (Failure err (toJSON n) mempty (Number x))
-    | otherwise      = Nothing
-  where
-    (lessThan, err) = if exclusive
-                          then ((<=), ExclusiveMinimum)
-                          else ((<), Minimum)
+    -> Maybe MinimumInvalid
+minimumVal a@(Minimum exclusive n) x
+    | exclusive && x <= n = Just (MinimumInvalid a x)
+    | x < n               = Just (MinimumInvalid a x)
+    | otherwise           = Nothing

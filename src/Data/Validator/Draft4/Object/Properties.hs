@@ -2,158 +2,32 @@
 module Data.Validator.Draft4.Object.Properties where
 
 import           Import
-import           Prelude
 
-import           Control.Monad
-import qualified Data.Aeson.Pointer     as AP
-import           Data.Functor           (($>))
-import qualified Data.HashMap.Strict    as HM
-import           Data.Text.Encoding     (encodeUtf8)
-import qualified Text.Regex.PCRE.Heavy  as RE
+import qualified Data.Hashable         as HA
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.List.NonEmpty    as NE
+import           Data.Text.Encoding    (encodeUtf8)
+import qualified JSONPointer           as JP
+import qualified Text.Regex.PCRE.Heavy as RE
 
-import           Data.Validator.Failure (Fail(..), prependToPath)
+data PropertiesRelated schema = PropertiesRelated
+    { _propProperties :: Maybe (HashMap Text schema)
+    , _propPattern    :: Maybe (HashMap Text schema)
+    , _propAdditional :: Maybe (AdditionalProperties schema)
+    } deriving (Eq, Show)
 
--- | For internal use.
-newtype Remaining
-    = Remaining { _unRemaining :: HashMap Text Value }
+instance FromJSON schema => FromJSON (PropertiesRelated schema) where
+    parseJSON = withObject "PropertiesRelated" $ \o -> PropertiesRelated
+        <$> o .:! "properties"
+        <*> o .:! "patternProperties"
+        <*> o .:! "additionalProperties"
 
---------------------------------------------------
--- * properties
---------------------------------------------------
-
-data PropertiesInvalid err
-    = PropertiesInvalid err
-    | PropPatternInvalid err
-    | PropAdditionalInvalid (AdditionalPropertiesInvalid err)
-    deriving (Eq, Show)
-
--- | In order of what's tried: @"properties"@, @"patternProperties"@,
--- @"additionalProperties"@.
-properties
-    :: forall err schema.
-       (schema -> Value -> [Fail err])
-    -> Maybe (HashMap Text schema)
-    -> Maybe (AdditionalProperties schema)
-    -> HashMap Text schema
-    -> HashMap Text Value
-    -> [Fail (PropertiesInvalid err)]
-properties f mPat mAdd propertiesHm x =
-       fmap (fmap PropertiesInvalid) propFailures
-    <> fmap (fmap PropPatternInvalid) patternFailures
-    <> fmap (fmap PropAdditionalInvalid) additionalFailures
-  where
-    propertiesAndUnmatched :: ([Fail err], Remaining)
-    propertiesAndUnmatched = ( failures
-                             , Remaining (HM.difference x propertiesHm)
-                             )
-      where
-        failures :: [Fail err]
-        failures = HM.toList (HM.intersectionWith f propertiesHm x)
-               >>= (\(k,vs) -> fmap (prependToPath (AP.Token k)) vs)
-
-    (propFailures, remaining1) = propertiesAndUnmatched
-
-    mPatProp :: Maybe (HashMap Text Value -> ([Fail err], Remaining))
-    mPatProp = patternAndUnmatched f <$> mPat
-
-    patternFailures :: [Fail err]
-    patternFailures = case mPatProp of
-                          Nothing  -> mempty
-                          Just val -> fst (val x)
-
-    remaining2 :: Remaining
-    remaining2 = case mPatProp of
-                     Nothing  -> remaining1
-                     Just val -> snd . val . _unRemaining $ remaining1
-
-    additionalFailures :: [Fail (AdditionalPropertiesInvalid err)]
-    additionalFailures =
-        case mAdd of
-            Nothing -> mempty
-            Just a  -> additionalProperties f True a (_unRemaining remaining2)
-
---------------------------------------------------
--- * patternProperties
---------------------------------------------------
-
-data PatternPropertiesInvalid err
-    = PPInvalid err
-    | PPAdditionalPropertiesInvalid (AdditionalPropertiesInvalid err)
-    deriving (Eq, Show)
-
-patternProperties
-    :: forall err schema.
-       (schema -> Value -> [Fail err])
-    -> Bool
-    -> Maybe (AdditionalProperties schema)
-    -> HashMap Text schema
-    -> HashMap Text Value
-    -> [Fail (PatternPropertiesInvalid err)]
-patternProperties _ False _ _ _ = mempty
-patternProperties f _ mAdd patternPropertiesHm x =
-       (fmap PPInvalid <$> ppFailures)
-    <> (fmap PPAdditionalPropertiesInvalid <$> addFailures)
-  where
-    patternProps :: ([Fail err], Remaining)
-    patternProps = patternAndUnmatched f patternPropertiesHm x
-
-    (ppFailures, remaining) = patternProps
-
-    addFailures :: [Fail (AdditionalPropertiesInvalid err)]
-    addFailures =
-        case mAdd of
-            Nothing -> mempty
-            Just a  -> additionalProperties f True a (_unRemaining remaining)
-
-patternAndUnmatched
-    :: forall err schema.
-       (schema -> Value -> [Fail err])
-    -> HashMap Text schema
-    -> HashMap Text Value
-    -> ([Fail err], Remaining)
-patternAndUnmatched f patPropertiesHm x =
-    (HM.foldlWithKey' runVals mempty perhapsMatches, remaining)
-  where
-    perhapsMatches :: HashMap Text (Value, [schema])
-    perhapsMatches = HM.foldlWithKey' (matchingSchemas patPropertiesHm) mempty x
-      where
-        matchingSchemas
-            :: HashMap Text schema
-            -> HashMap Text (Value, [schema])
-            -> Text
-            -> Value
-            -> HashMap Text (Value, [schema])
-        matchingSchemas subSchemas acc k v =
-            HM.insert k (v, HM.foldlWithKey' (checkKey k) mempty subSchemas) acc
-
-        checkKey
-            :: Text
-            -> [schema]
-            -> Text
-            -> schema
-            -> [schema]
-        checkKey k acc r subSchema =
-            case RE.compileM (encodeUtf8 r) mempty of
-                Left _   -> acc
-                Right re -> if k RE.=~ re
-                                then pure subSchema <> acc
-                                else acc
-
-    runVals
-        :: [Fail err]
-        -> Text
-        -> (Value, [schema])
-        -> [Fail err]
-    runVals acc k (v,subSchemas) =
-        (subSchemas >>= (\schema -> prependToPath (AP.Token k) <$> f schema v))
-        <> acc
-
-    remaining :: Remaining
-    remaining = Remaining . fmap fst . HM.filter (null . snd) $ perhapsMatches
-
---------------------------------------------------
--- * additionalProperties
---------------------------------------------------
+emptyProperties :: PropertiesRelated schema
+emptyProperties = PropertiesRelated
+    { _propProperties = Nothing
+    , _propPattern    = Nothing
+    , _propAdditional = Nothing
+    }
 
 data AdditionalProperties schema
     = AdditionalPropertiesBool Bool
@@ -173,42 +47,163 @@ instance Arbitrary schema => Arbitrary (AdditionalProperties schema) where
                       , AdditionalPropertiesObject <$> arbitrary
                       ]
 
-data AdditionalPropertiesInvalid err
-    = APBoolInvalid
-    | APObjectInvalid err
+-- | A glorified @type@ alias.
+newtype Regex
+    = Regex { _unRegex :: Text }
+    deriving (Eq, Show, Generic)
+
+instance HA.Hashable Regex
+
+-- NOTE: We'd like to enforce that at least one error exists here.
+data PropertiesRelatedInvalid err = PropertiesRelatedInvalid
+    { _prInvalidProperties :: HashMap Text [err]
+    , _prInvalidPattern    :: HashMap (Regex, JP.Key) [err]
+    , _prInvalidAdditional :: Maybe (APInvalid err)
+    } deriving (Eq, Show)
+
+data APInvalid err
+    = APBoolInvalid   (HashMap Text Value)
+    | APObjectInvalid (HashMap Text (NonEmpty err))
     deriving (Eq, Show)
 
+-- | First @"properties"@ and @"patternProperties"@ are run simultaneously
+-- on the data, then @"additionalProperties"@ is run on the remainder.
+propertiesRelatedVal
+    :: forall err schema.
+       (schema -> Value -> [err])
+    -> PropertiesRelated schema
+    -> HashMap Text Value
+    -> Maybe (PropertiesRelatedInvalid err)
+propertiesRelatedVal f props x
+    |  all null (HM.elems propFailures)
+    && all null (HM.elems patFailures)
+    && isNothing addFailures = Nothing
+    | otherwise =
+        Just PropertiesRelatedInvalid
+            { _prInvalidProperties = propFailures
+            , _prInvalidPattern    = patFailures
+            , _prInvalidAdditional = addFailures
+            }
+  where
+    propertiesHm :: HashMap Text schema
+    propertiesHm = fromMaybe mempty (_propProperties props)
+
+    patHm :: HashMap Text schema
+    patHm = fromMaybe mempty (_propPattern props)
+
+    propAndUnmatched :: (HashMap Text [err], Remaining)
+    propAndUnmatched = ( HM.intersectionWith f propertiesHm x
+                       , Remaining (HM.difference x propertiesHm)
+                       )
+
+    (propFailures, propRemaining) = propAndUnmatched
+
+    patAndUnmatched :: (HashMap (Regex, JP.Key) [err], Remaining)
+    patAndUnmatched = patternAndUnmatched f patHm x
+
+    (patFailures, patRemaining) = patAndUnmatched
+
+    finalRemaining :: Remaining
+    finalRemaining = Remaining (HM.intersection (_unRemaining patRemaining)
+                                                (_unRemaining propRemaining))
+
+    addFailures :: Maybe (APInvalid err)
+    addFailures = (\addProp -> additionalProperties f addProp finalRemaining)
+              =<< _propAdditional props
+
+-- | Internal.
+newtype Remaining
+    = Remaining { _unRemaining :: HashMap Text Value }
+
+-- | Internal.
+patternAndUnmatched
+    :: forall err schema.
+       (schema -> Value -> [err])
+    -> HashMap Text schema
+    -> HashMap Text Value
+    -> (HashMap (Regex, JP.Key) [err], Remaining)
+patternAndUnmatched f patPropertiesHm x =
+    (HM.foldlWithKey' runMatches mempty perhapsMatches, remaining)
+  where
+    -- @[(Regex, schema)]@ will have one item per match.
+    perhapsMatches :: HashMap Text ([(Regex, schema)], Value)
+    perhapsMatches =
+        HM.foldlWithKey' (matchingSchemas patPropertiesHm) mempty x
+      where
+        matchingSchemas
+            :: HashMap Text schema
+            -> HashMap Text ([(Regex, schema)], Value)
+            -> Text
+            -> Value
+            -> HashMap Text ([(Regex, schema)], Value)
+        matchingSchemas subSchemas acc k v =
+            HM.insert k
+                      (HM.foldlWithKey' (checkKey k) mempty subSchemas, v)
+                      acc
+
+        checkKey
+            :: Text
+            -> [(Regex, schema)]
+            -> Text
+            -> schema
+            -> [(Regex, schema)]
+        checkKey k acc r subSchema =
+            case RE.compileM (encodeUtf8 r) mempty of
+                Left _   -> acc
+                Right re -> if k RE.=~ re
+                                then (Regex r, subSchema) : acc
+                                else acc
+
+    runMatches
+        :: HashMap (Regex, JP.Key) [err]
+        -> Text
+        -> ([(Regex, schema)], Value)
+        -> HashMap (Regex, JP.Key) [err]
+    runMatches acc k (matches,v) =
+        foldr runMatch acc matches
+      where
+        runMatch
+            :: (Regex, schema)
+            -> HashMap (Regex, JP.Key) [err]
+            -> HashMap (Regex, JP.Key) [err]
+        runMatch (r,schema) = HM.insert (r, JP.Key k) (f schema v)
+
+    remaining :: Remaining
+    remaining = Remaining . fmap snd . HM.filter (null . fst) $ perhapsMatches
+
+-- Internal.
 additionalProperties
     :: forall err schema.
-       (schema -> Value -> [Fail err])
-    -> Bool
+       (schema -> Value -> [err])
     -> AdditionalProperties schema
-    -> HashMap Text Value
-    -> [Fail (AdditionalPropertiesInvalid err)]
-additionalProperties _ False _ _ = mempty
-additionalProperties f _ a x =
+    -> Remaining
+    -> Maybe (APInvalid err)
+additionalProperties f a x =
     case a of
         AdditionalPropertiesBool b ->
-            ($> APBoolInvalid) <$> additionalPropertiesBool b x
+            APBoolInvalid <$> additionalPropertiesBool b x
         AdditionalPropertiesObject b ->
-            fmap APObjectInvalid <$> additionalPropertiesObject f b x
+            APObjectInvalid <$> additionalPropertiesObject f b x
 
+-- | Internal.
 additionalPropertiesBool
     :: Bool
-    -> HashMap Text Value
-    -> [Fail ()]
-additionalPropertiesBool False x
-    | HM.size x > 0 = pure $ Failure () (Bool False) mempty (Object x)
-    | otherwise    = mempty
-additionalPropertiesBool True _ = mempty
+    -> Remaining
+    -> Maybe (HashMap Text Value)
+additionalPropertiesBool True _ = Nothing
+additionalPropertiesBool False (Remaining x)
+    | HM.size x > 0 = Just x
+    | otherwise     = Nothing
 
+-- | Internal.
 additionalPropertiesObject
     :: forall err schema.
-       (schema -> Value -> [Fail err])
+       (schema -> Value -> [err])
     -> schema
-    -> HashMap Text Value
-    -> [Fail err]
-additionalPropertiesObject f schema x = HM.toList x >>= g
-  where
-    g :: (Text, Value) -> [Fail err]
-    g (k,v) = prependToPath (AP.Token k) <$> f schema v
+    -> Remaining
+    -> Maybe (HashMap Text (NonEmpty err))
+additionalPropertiesObject f schema (Remaining x) =
+    let errs = HM.mapMaybe (NE.nonEmpty . f schema) x
+    in if HM.null errs
+        then Nothing
+        else Just errs

@@ -6,5 +6,8 @@ haskell.lib.buildStackProject {
   buildInputs = [
     pkgconfig
     pcre
+
+    # for `git:` references in stack.yml:
+    git
   ];
 }

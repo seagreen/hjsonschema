@@ -1,18 +1,17 @@
 
 module Main where
 
-import           Control.Applicative
-import           Control.Monad          (unless)
+import           Protolude
+
 import           Data.Aeson
-import           Data.Foldable          (traverse_)
-import qualified Data.List.NonEmpty     as N
-import           Data.Monoid
+import qualified Data.List.NonEmpty     as NE
 import qualified System.Timeout         as TO
 import           Test.Hspec
 import           Test.QuickCheck        (property)
 
 import qualified Data.JsonSchema.Draft4 as D4
-import           Data.JsonSchema.Fetch  (ReferencedSchemas(..))
+import           Data.JsonSchema.Fetch  (ReferencedSchemas(..),
+                                         URISchemaMap(..))
 import qualified Data.JsonSchema.Types  as JT
 import qualified Local.Failure
 import qualified Local.Validation
@@ -21,13 +20,13 @@ import           Shared
 
 -- Examples
 import qualified AlternateSchema
-import qualified Full
 import qualified Simple
+import qualified TwoStep
 
-dir :: String
+dir :: FilePath
 dir = "JSON-Schema-Test-Suite/tests/draft4"
 
-supplementDir :: String
+supplementDir :: FilePath
 supplementDir = "test/supplement"
 
 main :: IO ()
@@ -73,22 +72,20 @@ main = do
         res <- D4.fetchHTTPAndValidate (D4.SchemaWithURI s Nothing) (_scData sc)
         let failures = case res of
                            Right ()           -> mempty
-                           Left (D4.HVData a) -> N.toList a
-                           other              -> error ("Local.validate error: "
+                           Left (D4.HVData a) -> NE.toList (D4._invalidFailures a)
+                           other              -> panic ("Local.validate error: "
                                                        <> show other)
-        traverse_ (checkPointer (_scData sc)) failures
         assertResult sc failures
 
     validateExample :: JT.Schema -> SchemaTestCase -> Expectation
     validateExample s sc = do
         res <- AlternateSchema.referencesViaHTTP (D4.SchemaWithURI s Nothing)
         case res of
-            Left e          -> error ("Local.validateExample error: " <> show e)
+            Left e          -> panic ("Local.validateExample error: " <> show e)
             Right schemaMap -> do
                 let failures = AlternateSchema.validate
-                                   (ReferencedSchemas s schemaMap)
+                                   (ReferencedSchemas s (_unURISchemaMap schemaMap))
                                    Nothing s (_scData sc)
-                traverse_ (checkPointer (_scData sc)) failures
                 assertResult sc failures
 
 quickCheckTests :: Spec
@@ -101,5 +98,5 @@ quickCheckTests =
 
 exampleTests :: Spec
 exampleTests = do
-    it "Full.example compiles successfully" Full.example
     it "Simple.example compiles successfully" Simple.example
+    it "TwoStep.example compiles successfully" TwoStep.example

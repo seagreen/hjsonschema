@@ -1,28 +1,18 @@
-{-# LANGUAGE DeriveGeneric #-}
 
 module Shared where
 
-import           Control.Applicative
-import           Control.Monad
-import           Data.Aeson
-import qualified Data.Aeson.Pointer     as AP
-import           Data.Aeson.TH
-import qualified Data.ByteString.Lazy   as LBS
-import           Data.Char              (toLower)
-import qualified Data.HashMap.Strict    as HM
-import           Data.List              (isInfixOf, stripPrefix)
-import           Data.Maybe
-import           Data.Monoid
-import           Data.Text              (Text)
-import qualified Data.Text              as T
-import           Data.Traversable
-import qualified Data.Vector            as V
-import           GHC.Generics
-import qualified System.Directory       as SD
-import           System.FilePath        ((</>))
-import           Test.Hspec
+import           Protolude
 
-import qualified Data.JsonSchema.Draft4 as D4
+import           Control.Monad        (fail)
+import           Data.Aeson
+import           Data.Aeson.TH
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Char            (toLower)
+import           Data.List            (stripPrefix, unlines)
+import qualified Data.Text            as T
+import qualified System.Directory     as SD
+import           System.FilePath      ((</>))
+import           Test.Hspec
 
 -- Recursively return the contents of a directory
 -- (or return itself if given a file as an argument).
@@ -47,35 +37,14 @@ listFilesFullPath path = do
             fs <- fmap (path </>) <$> SD.listDirectory path
             concat <$> traverse listFilesFullPath fs
 
-checkPointer :: Value -> D4.Failure -> Expectation
-checkPointer v failure =
-    case AP.resolve (D4._failureOffendingPointer failure) v of
-        Left e  -> error ("Couldn't resolve pointer: " <> show e)
-        Right a -> assertContains a (D4._failureOffendingData failure)
-  where
-    -- Some validators, such as 'additionalItems', only return a subset
-    -- of the data incated by their '_failureOffendingPointer'.
-    -- See the comments on 'Data.Validator.Failure.Failure' for more info.
-    assertContains :: Value -> Value -> Expectation
-    assertContains x y
-        | x == y    = pure ()
-        | otherwise =
-            case (x,y) of
-                (Array xs, Array ys) ->
-                    V.toList ys `shouldSatisfy` (`isInfixOf` V.toList xs)
-                (Object xhm, Object yhm) ->
-                    HM.toList yhm `shouldSatisfy` (`isInfixOf` HM.toList xhm)
-                _ -> expectationFailure
-                        "Pointer resolution incorrect: result mismatch"
-
-isHTTPTest :: String -> Bool
+isHTTPTest :: FilePath -> Bool
 isHTTPTest file = (file == "definitions.json")
                || (file == "ref.json")
                || (file == "refRemote.json")
 
 -- | We may never support the @"format"@ keywords, and
 -- are currently failing the zeroTerminatedFloats test.
-skipOptional :: String -> Bool
+skipOptional :: FilePath -> Bool
 skipOptional file = (file == "optional/format.json")
                  || (file == "optional/zeroTerminatedFloats.json")
 
@@ -104,9 +73,9 @@ instance FromJSON SchemaTestCase where
                     { fieldLabelModifier = fmap toLower . drop 3 }
 
 readSchemaTests
-    :: String
+    :: FilePath
     -- ^ The path to a directory.
-    -> (String -> Bool)
+    -> (FilePath -> Bool)
     -- ^ A function to decide what we're interested in within that directory.
     -> IO [SchemaTest]
 readSchemaTests dir filterFunc = do
@@ -114,7 +83,7 @@ readSchemaTests dir filterFunc = do
     concat <$> traverse fileToCases files
   where
     -- Each file contains an array of SchemaTests, not just one.
-    fileToCases :: String -> IO [SchemaTest]
+    fileToCases :: FilePath -> IO [SchemaTest]
     fileToCases name = do
         let fullPath = dir </> name
         jsonBS <- LBS.readFile fullPath
@@ -122,7 +91,7 @@ readSchemaTests dir filterFunc = do
             Left e -> fail $ "couldn't parse file '" <> fullPath <> "': " <> e
             Right schemaTests -> pure $ prependFileName name <$> schemaTests
 
-    prependFileName :: String -> SchemaTest -> SchemaTest
+    prependFileName :: FilePath -> SchemaTest -> SchemaTest
     prependFileName fileName s = s
         { _stDescription = T.pack fileName <> ": " <> _stDescription s
         }
@@ -138,15 +107,15 @@ toTest validate st =
   where
     schema :: schema
     schema = case fromJSON (_stSchema st) of
-                 Error e   -> error ("Couldn't parse schema: " <> show e)
+                 Error e   -> panic ("Couldn't parse schema: " <> show e)
                  Success a -> a
 
-assertResult :: SchemaTestCase -> [D4.Failure] -> Expectation
+assertResult :: Show err => SchemaTestCase -> [err] -> Expectation
 assertResult sc failures
     | _scValid sc = assertValid sc failures
     | otherwise   = assertInvalid sc failures
 
-assertValid :: SchemaTestCase -> [D4.Failure] -> Expectation
+assertValid :: Show err => SchemaTestCase -> [err] -> Expectation
 assertValid _ [] = pure ()
 assertValid sc failures =
     expectationFailure $ unlines
@@ -156,7 +125,7 @@ assertValid sc failures =
         , "    Validation failures: " <> show failures
         ]
 
-assertInvalid :: SchemaTestCase -> [D4.Failure] -> Expectation
+assertInvalid :: SchemaTestCase -> [err] -> Expectation
 assertInvalid sc [] =
     expectationFailure $ unlines
         [ "    Validated invalid data"

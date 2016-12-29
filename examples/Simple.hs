@@ -1,9 +1,7 @@
--- | Demonstrate 'D4.fetchFilesystemAndValidate'.
---
--- To fetch schemas using HTTP instead of from the filesystem use
--- 'D4.fetchHTTPAndValidate'.
 
 module Simple where
+
+import           Protolude
 
 import           Data.Aeson             (Value(..), decode, toJSON)
 import qualified Data.ByteString.Lazy   as LBS
@@ -13,25 +11,28 @@ import           Data.Maybe             (fromMaybe)
 import qualified Data.JsonSchema.Draft4 as D4
 
 badData :: Value
-badData = toJSON (["foo", "foo"] :: [String])
+badData = toJSON [True, True]
 
 example :: IO ()
 example = do
+    bts <- LBS.readFile "./examples/json/unique.json"
+    let schema = fromMaybe (panic "Invalid schema JSON.") (decode bts)
+        schemaWithURI = D4.SchemaWithURI
+                            schema
+                            Nothing -- This would be the URI of the schema
+                                    -- if it had one. It's used if the schema
+                                    -- has relative references to other
+                                    -- schemas.
 
-    -- Get the starting schema.
-    bts <- LBS.readFile "./examples/json/start.json"
-    let schema = fromMaybe (error "Invalid schema JSON.") (decode bts)
-        schemaWithURI = D4.SchemaWithURI schema (Just "./examples/json/start.json")
-
-    -- Fetch any referenced schemas, check that our original schema itself
-    -- is valid, and validate the data.
-    res <- D4.fetchFilesystemAndValidate schemaWithURI badData
+    -- Fetch any referenced schemas over HTTP, check that our original schema
+    -- itself is valid, and validate the data.
+    res <- D4.fetchHTTPAndValidate schemaWithURI badData
     case res of
-        Right ()                  -> error "We validated bad data."
-        Left (D4.FVRead _)        -> error ("Error fetching a referenced schema"
-                                            ++ " (either during IO or parsing).")
-        Left (D4.FVSchema _)      -> error "Our 'schema' itself was invalid."
-        Left (D4.FVData failures) ->
+        Right ()                  -> panic "We validated bad data."
+        Left (D4.HVRequest _)     -> panic ("Error fetching a referenced schema"
+                                            <> " (either during IO or parsing).")
+        Left (D4.HVSchema _)      -> panic "Our 'schema' itself was invalid."
+        Left (D4.HVData (D4.Invalid _ _ failures)) ->
             case NE.toList failures of
-                [D4.Failure (D4.Ref D4.UniqueItems) _ _ _] -> return () -- Success.
-                _ -> error "Got more invalidation reasons than we expected."
+                [D4.FailureUniqueItems _] -> pure () -- Success.
+                _ -> panic "We got a different failure than expected."

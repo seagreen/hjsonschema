@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Validator.Draft4.Object
   ( module Data.Validator.Draft4.Object
@@ -6,41 +5,67 @@ module Data.Validator.Draft4.Object
   ) where
 
 import           Import
--- Hiding is for GHCs before 7.10:
-import           Prelude                                 hiding (all, concat,
-                                                          foldl)
 
-import           Data.Aeson.Types                        (Parser)
-import qualified Data.HashMap.Strict                     as H
+import qualified Data.HashMap.Strict                     as HM
+import qualified Data.List.NonEmpty                      as NE
 import           Data.Set                                (Set)
 import qualified Data.Set                                as S
 import qualified Data.Text                               as T
 
 import           Data.Validator.Draft4.Object.Properties
-import           Data.Validator.Failure                  (Fail(..))
 import           Data.Validator.Utils
 
 --------------------------------------------------
 -- * maxProperties
 --------------------------------------------------
 
+newtype MaxProperties
+    = MaxProperties { _unMaxProperties :: Int }
+    deriving (Eq, Show)
+
+instance FromJSON MaxProperties where
+    parseJSON = withObject "MaxProperties" $ \o ->
+        MaxProperties <$> o .: "maxProperties"
+
+data MaxPropertiesInvalid
+    = MaxPropertiesInvalid MaxProperties (HashMap Text Value)
+    deriving (Eq, Show)
+
 -- | The spec requires @"maxProperties"@ to be non-negative.
-maxProperties :: Int -> HashMap Text Value -> Maybe (Fail ())
-maxProperties n x
-    | n < 0        = Nothing
-    | H.size x > n = Just (Failure () (toJSON n) mempty (Object x))
-    | otherwise    = Nothing
+maxPropertiesVal
+    :: MaxProperties
+    -> HashMap Text Value
+    -> Maybe MaxPropertiesInvalid
+maxPropertiesVal a@(MaxProperties n) x
+    | n < 0         = Nothing
+    | HM.size x > n = Just (MaxPropertiesInvalid a x)
+    | otherwise     = Nothing
 
 --------------------------------------------------
 -- * minProperties
 --------------------------------------------------
 
+newtype MinProperties
+    = MinProperties { _unMinProperties :: Int }
+    deriving (Eq, Show)
+
+instance FromJSON MinProperties where
+    parseJSON = withObject "MinProperties" $ \o ->
+        MinProperties <$> o .: "minProperties"
+
+data MinPropertiesInvalid
+    = MinPropertiesInvalid MinProperties (HashMap Text Value)
+    deriving (Eq, Show)
+
 -- | The spec requires @"minProperties"@ to be non-negative.
-minProperties :: Int -> HashMap Text Value -> Maybe (Fail ())
-minProperties n x
-    | n < 0        = Nothing
-    | H.size x < n = Just (Failure () (toJSON n) mempty (Object x))
-    | otherwise    = Nothing
+minPropertiesVal
+    :: MinProperties
+    -> HashMap Text Value
+    -> Maybe MinPropertiesInvalid
+minPropertiesVal a@(MinProperties n) x
+    | n < 0         = Nothing
+    | HM.size x < n = Just (MinPropertiesInvalid a x)
+    | otherwise     = Nothing
 
 --------------------------------------------------
 -- * required
@@ -51,28 +76,13 @@ minProperties n x
 -- > The value of this keyword MUST be an array.
 -- > This array MUST have at least one element.
 -- > Elements of this array MUST be strings, and MUST be unique.
---
--- We don't enfore that 'Required' has at least one element in the
--- haskell code, but we do in the 'FromJSON' instance.
 newtype Required
     = Required { _unRequired :: Set Text }
-    deriving (Eq, Show, ToJSON)
+    deriving (Eq, Show)
 
 instance FromJSON Required where
-    parseJSON v = checkUnique =<< checkSize =<< parseJSON v
-      where
-        checkSize :: [Text] -> Parser [Text]
-        checkSize a
-            | null a    = fail "Required validator must not be empty."
-            | otherwise = pure a
-
-        checkUnique :: [Text] -> Parser Required
-        checkUnique a =
-            let b = S.fromList a
-            -- NOTE: Can use length instead of S.size in GHC 7.10 or later.
-            in if length a == S.size b
-                then pure (Required b)
-                else fail "All elements of the Required validator must be unique."
+    parseJSON = withObject "Required" $ \o ->
+        Required <$> o .: "required"
 
 instance Arbitrary Required where
     arbitrary = do
@@ -80,22 +90,30 @@ instance Arbitrary Required where
         xs <- (fmap.fmap) T.pack arbitrary
         pure . Required . S.fromList $ x:xs
 
-required :: Required -> HashMap Text Value -> Maybe (Fail ())
-required (Required ts) x
+requiredVal :: Required -> HashMap Text Value -> Maybe ()
+requiredVal (Required ts) x
     -- NOTE: When we no longer need to support GHCs before 7.10
     -- we can use null from Prelude throughout the library
     -- instead of specialized versions.
-    | S.null ts                  = Nothing
-    | H.null (H.difference hm x) = Nothing
-    | otherwise                  = Just (Failure () (toJSON ts)
-                                                 mempty (Object x))
+    | S.null ts                    = Nothing
+    | HM.null (HM.difference hm x) = Nothing
+    | otherwise                    = Just () -- TODO
   where
     hm :: HashMap Text Bool
-    hm = foldl (\b a -> H.insert a True b) mempty ts
+    hm = foldl (\b a -> HM.insert a True b) mempty ts
 
 --------------------------------------------------
 -- * dependencies
 --------------------------------------------------
+
+newtype DependenciesValidator schema
+    = DependenciesValidator
+        { _unDependenciesValidator :: HashMap Text (Dependency schema) }
+    deriving (Eq, Show)
+
+instance FromJSON schema => FromJSON (DependenciesValidator schema) where
+    parseJSON = withObject "DependenciesValidator" $ \o ->
+        DependenciesValidator <$> o .: "dependencies"
 
 data Dependency schema
     = SchemaDependency schema
@@ -115,9 +133,13 @@ instance Arbitrary schema => Arbitrary (Dependency schema) where
                       , PropertyDependency <$> arbitrarySetOfText
                       ]
 
-data DependencyInvalid err
-    = SchemaDependencyInvalid err
-    | PropertyDependencyInvalid
+data DependencyMemberInvalid err
+    = SchemaDepInvalid   (NonEmpty err)
+    | PropertyDepInvalid (Set Text) (HashMap Text Value)
+    deriving (Eq, Show)
+
+data DependenciesInvalid err
+    = DependenciesInvalid (HashMap Text (DependencyMemberInvalid err))
     deriving (Eq, Show)
 
 -- | From the spec:
@@ -132,26 +154,26 @@ data DependencyInvalid err
 -- > If the value is an array, it MUST have at least one element.
 -- > Each element MUST be a string, and elements in the array MUST be unique.
 -- > This is called a property dependency.
-dependencies
+dependenciesVal
     :: forall err schema.
-       (schema -> Value -> [Fail err])
-    -> HashMap Text (Dependency schema)
+       (schema -> Value -> [err])
+    -> DependenciesValidator schema
     -> HashMap Text Value
-    -> [Fail (DependencyInvalid err)]
-dependencies f hm x = concat . fmap (uncurry g) . H.toList $ hm
-  where
-    g :: Text -> Dependency schema -> [Fail (DependencyInvalid err)]
-    g k (SchemaDependency schema)
-        | H.member k x =
-            fmap SchemaDependencyInvalid <$> f schema (Object x)
-        | otherwise    = mempty
-    g k (PropertyDependency ts)
-        | H.member k x && not allPresent =
-            pure $ Failure PropertyDependencyInvalid
-                           (toJSON (H.singleton k ts))
-                           mempty
-                           (Object x)
-        | otherwise = mempty
-      where
-        allPresent :: Bool
-        allPresent = all (`H.member` x) ts
+    -> Maybe (DependenciesInvalid err)
+dependenciesVal f (DependenciesValidator hm) x =
+    let res = HM.mapMaybeWithKey g hm
+    in if HM.null res
+        then Nothing
+        else Just (DependenciesInvalid res)
+    where
+      g :: Text -> Dependency schema -> Maybe (DependencyMemberInvalid err)
+      g k (SchemaDependency schema)
+          | HM.member k x = SchemaDepInvalid
+                        <$> NE.nonEmpty (f schema (Object x))
+          | otherwise = Nothing
+      g k (PropertyDependency ts)
+          | HM.member k x && not allPresent = Just (PropertyDepInvalid ts x)
+          | otherwise                       = Nothing
+        where
+          allPresent :: Bool
+          allPresent = all (`HM.member` x) ts

@@ -1,12 +1,9 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.JsonSchema.Types where
 
-import           Prelude
 import           Import
 
-import           Data.Validator.Failure (Fail)
-import           Data.Validator.Types   (Validator(..))
+import           Data.Validator.Types (Validator(..))
 
 newtype Spec schema err
     = Spec { _unSpec :: [Validator schema schema err] }
@@ -25,8 +22,9 @@ validate
     :: Spec schema err
     -> schema
     -> Value
-    -> [Fail err]
-validate spec schema v = _unSpec spec >>= (\val -> _validate val schema v)
+    -> [err]
+validate spec schema v =
+    (\val -> _validate val schema v) =<< _unSpec spec
 
 -- | A basic schema type that doesn't impose much structure.
 --

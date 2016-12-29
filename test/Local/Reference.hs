@@ -1,6 +1,8 @@
 
 module Local.Reference where
 
+import           Protolude
+
 import           Test.Hspec
 
 import           Data.Validator.Reference

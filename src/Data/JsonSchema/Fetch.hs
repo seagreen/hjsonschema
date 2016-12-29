@@ -2,15 +2,13 @@
 module Data.JsonSchema.Fetch where
 
 import           Import
--- Hiding is for GHCs before 7.10:
-import           Prelude                  hiding (concat, sequence)
 
 import           Control.Arrow            (left)
-import           Control.Exception        (catch)
+import           Control.Exception        (IOException, catch)
 import           Control.Monad            (foldM)
-import qualified Data.ByteString.Lazy     as LBS
 import qualified Data.ByteString          as BS
-import qualified Data.HashMap.Strict      as H
+import qualified Data.ByteString.Lazy     as LBS
+import qualified Data.HashMap.Strict      as HM
 import qualified Data.Text                as T
 import qualified Network.HTTP.Client      as NC
 
@@ -50,11 +48,14 @@ data ReferencedSchemas schema = ReferencedSchemas
       --     }
       --   }
       -- }
-    , _rsSchemaMap :: !(URISchemaMap schema)
+    , _rsSchemaMap :: !(HashMap Text schema)
+      -- ^ Map of URIs to schemas.
     } deriving (Eq, Show)
 
 -- | Keys are URIs (without URI fragments).
-type URISchemaMap schema = HashMap Text schema
+newtype URISchemaMap schema
+    = URISchemaMap { _unURISchemaMap :: HashMap Text schema }
+    deriving (Eq, Show)
 
 data SchemaWithURI schema = SchemaWithURI
     { _swSchema :: !schema
@@ -68,7 +69,7 @@ data SchemaWithURI schema = SchemaWithURI
 
 getReference :: ReferencedSchemas schema -> Maybe Text -> Maybe schema
 getReference referenced Nothing  = Just (_rsStarting referenced)
-getReference referenced (Just t) = H.lookup t (_rsSchemaMap referenced)
+getReference referenced (Just t) = HM.lookup t (_rsSchemaMap referenced)
 
 --------------------------------------------------
 -- * Fetch via HTTP
@@ -88,13 +89,13 @@ referencesViaHTTP'
     -> IO (Either HTTPFailure (URISchemaMap schema))
 referencesViaHTTP' info sw = do
     manager <- NC.newManager NC.defaultManagerSettings
-    let f = referencesMethodAgnostic (get manager) info sw
+    let f = referencesMethodAgnostic (getURL manager) info sw
     catch (left HTTPParseFailure <$> f) handler
   where
-    get :: NC.Manager -> Text -> IO LBS.ByteString
-    get man url = do
+    getURL :: NC.Manager -> Text -> IO BS.ByteString
+    getURL man url = do
         request <- NC.parseUrlThrow (T.unpack url)
-        NC.responseBody <$> NC.httpLbs request man
+        LBS.toStrict . NC.responseBody <$> NC.httpLbs request man
 
     handler
         :: NC.HttpException
@@ -107,7 +108,7 @@ referencesViaHTTP' info sw = do
 
 data FilesystemFailure
     = FSParseFailure Text
-    | FSReadFailure  IOError
+    | FSReadFailure  IOException
     deriving (Show, Eq)
 
 referencesViaFilesystem'
@@ -118,13 +119,10 @@ referencesViaFilesystem'
 referencesViaFilesystem' info sw = catch (left FSParseFailure <$> f) handler
   where
     f :: IO (Either Text (URISchemaMap schema))
-    f = referencesMethodAgnostic readFile' info sw
-
-    readFile' :: Text -> IO LBS.ByteString
-    readFile' = fmap LBS.fromStrict . BS.readFile . T.unpack
+    f = referencesMethodAgnostic (BS.readFile . T.unpack) info sw
 
     handler
-        :: IOError
+        :: IOException
         -> IO (Either FilesystemFailure (URISchemaMap schema))
     handler = pure . Left . FSReadFailure
 
@@ -137,16 +135,16 @@ referencesViaFilesystem' info sw = catch (left FSParseFailure <$> f) handler
 -- e.g. rejecting non-local URIs.
 referencesMethodAgnostic
     :: forall schema. FromJSON schema
-    => (Text -> IO LBS.ByteString)
+    => (Text -> IO BS.ByteString)
     -> FetchInfo schema
     -> SchemaWithURI schema
     -> IO (Either Text (URISchemaMap schema))
 referencesMethodAgnostic fetchRef info =
-    getRecursiveReferences fetchRef info mempty
+    getRecursiveReferences fetchRef info (URISchemaMap mempty)
 
 getRecursiveReferences
     :: forall schema. FromJSON schema
-    => (Text -> IO LBS.ByteString)
+    => (Text -> IO BS.ByteString)
     -> FetchInfo schema
     -> URISchemaMap schema
     -> SchemaWithURI schema
@@ -158,21 +156,23 @@ getRecursiveReferences fetchRef info referenced sw =
       -> SchemaWithURI schema
       -> IO (Either Text (URISchemaMap schema))
     f (Left e) _                            = pure (Left e)
-    f (Right g) (SchemaWithURI schema mUri) =
+    f (Right (URISchemaMap usm)) (SchemaWithURI schema mUri) =
         case newRef of
-            Nothing  -> pure (Right g)
+            Nothing  -> pure (Right (URISchemaMap usm))
             Just uri -> do
                 bts <- fetchRef uri
-                case eitherDecode bts of
+                case eitherDecodeStrict bts of
                     Left e     -> pure . Left . T.pack $ e
                     Right schm -> getRecursiveReferences
-                                      fetchRef info (H.insert uri schm g)
+                                      fetchRef
+                                      info
+                                      (URISchemaMap (HM.insert uri schm usm))
                                       (SchemaWithURI schm (Just uri))
       where
         newRef :: Maybe Text
         newRef
           | Just (Just uri,_) <- resolveReference mUri <$> _fiRef info schema
-              = case H.lookup uri g of
+              = case HM.lookup uri usm of
                     Nothing -> Just uri
                     Just _  -> Nothing
           | otherwise = Nothing

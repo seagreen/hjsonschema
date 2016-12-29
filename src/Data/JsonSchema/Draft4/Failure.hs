@@ -1,123 +1,59 @@
 
 module Data.JsonSchema.Draft4.Failure where
 
-import           Prelude
+import           Import
 
-import           Data.List.NonEmpty            (NonEmpty)
-import           Data.Text                     (Text)
+import           Data.JsonSchema.Draft4.Schema (Schema)
+import qualified Data.Validator.Draft4         as D4
 
-import qualified Data.Validator.Draft4.Any    as AN
-import qualified Data.Validator.Draft4.Array  as AR
-import qualified Data.Validator.Draft4.Number as NU
-import qualified Data.Validator.Draft4.Object as OB
-import qualified Data.Validator.Failure       as FR
+-- | Used to report an entire instance being invalidated, as opposed
+-- to the failure of a single validator.
+data Invalid = Invalid
+    { _invalidSchema   :: Schema
+    , _invalidInstance :: Value
+    , _invalidFailures :: NonEmpty ValidatorFailure
+    } deriving (Eq, Show)
+
+data ValidatorFailure
+    = FailureMultipleOf D4.MultipleOfInvalid
+    | FailureMaximum    D4.MaximumInvalid
+    | FailureMinimum    D4.MinimumInvalid
+
+    | FailureMaxLength D4.MaxLengthInvalid
+    | FailureMinLength D4.MinLengthInvalid
+    | FailurePattern   D4.PatternInvalid
+
+    | FailureMaxItems        D4.MaxItemsInvalid
+    | FailureMinItems        D4.MinItemsInvalid
+    | FailureUniqueItems     D4.UniqueItemsInvalid
+    | FailureItems           (D4.ItemsInvalid ValidatorFailure)
+    | FailureAdditionalItems (D4.AdditionalItemsInvalid ValidatorFailure)
+
+    | FailureMaxProperties     D4.MaxPropertiesInvalid
+    | FailureMinProperties     D4.MinPropertiesInvalid
+    | FailureRequired          ()
+    | FailureDependencies      (D4.DependenciesInvalid ValidatorFailure)
+    | FailurePropertiesRelated (D4.PropertiesRelatedInvalid ValidatorFailure)
+
+    | FailureRef   (D4.RefInvalid ValidatorFailure)
+    | FailureEnum  D4.EnumInvalid
+    | FailureType  D4.TypeValidatorInvalid
+    | FailureAllOf (D4.AllOfInvalid ValidatorFailure)
+    | FailureAnyOf (D4.AnyOfInvalid ValidatorFailure)
+    | FailureOneOf (D4.OneOfInvalid ValidatorFailure)
+    | FailureNot   D4.NotValidatorInvalid
+    deriving (Eq, Show)
 
 -- | A description of why a schema (or one of its reference) is itself
 -- invalid.
 --
 -- 'Nothing' indicates the starting schema. 'Just' indicates a referenced
--- schema -- the contents of the 'Just' is the schema's URI.
+-- schema. The contents of the 'Just' is the schema's URI.
 --
--- NOTE: 'HashMap (Maybe Text) Invalid' would be a nicer way of defining
--- this, but then we lose the guarantee that there's at least one key.
-type InvalidSchema = NonEmpty (Maybe Text, Failure)
-
-type Invalid = NonEmpty Failure
-
-type Failure = FR.Fail ValidatorChain
-
--- | Distinguish all the different possible causes of failure for
--- Draft 4 validation.
-data ValidatorChain
-    = MultipleOf
-    | Maximum
-    | ExclusiveMaximum
-    | Minimum
-    | ExclusiveMinimum
-
-    | MaxLength
-    | MinLength
-    | PatternValidator
-
-    | MaxItems
-    | MinItems
-    | UniqueItems
-    | Items ValidatorChain
-    | AdditionalItemsBool
-    | AdditionalItemsObject ValidatorChain
-
-    | MaxProperties
-    | MinProperties
-    | Required
-    | SchemaDependency ValidatorChain
-    | PropertyDependency
-    | Properties ValidatorChain
-    | PatternProperties ValidatorChain
-    | AdditionalPropertiesBool
-    | AdditionalPropertiesObject ValidatorChain
-
-    | RefResolution
-      -- ^ Indicates a reference that failed to resolve.
-      --
-      -- NOTE: The language agnostic test suite doesn't specify if this should
-      -- cause a validation error or should allow data to pass. We choose to
-      -- return a validation error.
-      --
-      -- Also note that ideally we would enforce in the type system that any
-      -- failing references be dealt with before valididation. Then this could
-      -- be removed entirely.
-    | RefLoop
-    | Ref ValidatorChain
-    | Enum
-    | TypeValidator
-    | AllOf ValidatorChain
-    | AnyOf ValidatorChain
-    | OneOfTooManySuccesses
-    | OneOfNoSuccesses ValidatorChain
-    | NotValidator
+-- NOTE: 'HashMap (Maybe Text) Invalid' would be a nicer way of
+-- defining this, but then we lose the guarantee that there's at least
+-- one key.
+newtype SchemaInvalid
+    = SchemaInvalid {
+        _unSchemaInvalid :: NonEmpty (Maybe Text, NonEmpty ValidatorFailure) }
     deriving (Eq, Show)
-
-maxE :: NU.MaximumInvalid -> ValidatorChain
-maxE NU.Maximum          = Maximum
-maxE NU.ExclusiveMaximum = ExclusiveMaximum
-
-minE :: NU.MinimumInvalid -> ValidatorChain
-minE NU.Minimum          = Minimum
-minE NU.ExclusiveMinimum = ExclusiveMinimum
-
-itemsE :: AR.ItemsInvalid ValidatorChain -> ValidatorChain
-itemsE (AR.Items err)                        = Items err
-itemsE AR.AdditionalItemsBoolInvalid         = AdditionalItemsBool
-itemsE (AR.AdditionalItemsObjectInvalid err) = AdditionalItemsObject err
-
-depsE :: OB.DependencyInvalid ValidatorChain -> ValidatorChain
-depsE (OB.SchemaDependencyInvalid err) = SchemaDependency err
-depsE OB.PropertyDependencyInvalid     = PropertyDependency
-
-propE :: OB.PropertiesInvalid ValidatorChain -> ValidatorChain
-propE (OB.PropertiesInvalid err)   = Properties err
-propE (OB.PropPatternInvalid err)  = PatternProperties err
-propE (OB.PropAdditionalInvalid a) =
-    case a of
-        OB.APBoolInvalid       -> AdditionalPropertiesBool
-        OB.APObjectInvalid err -> AdditionalPropertiesObject err
-
-patPropE :: OB.PatternPropertiesInvalid ValidatorChain -> ValidatorChain
-patPropE (OB.PPInvalid err) = PatternProperties err
-patPropE (OB.PPAdditionalPropertiesInvalid a)   =
-    case a of
-        OB.APBoolInvalid       -> AdditionalPropertiesBool
-        OB.APObjectInvalid err -> AdditionalPropertiesObject err
-
-addPropE :: OB.AdditionalPropertiesInvalid ValidatorChain -> ValidatorChain
-addPropE OB.APBoolInvalid         = AdditionalPropertiesBool
-addPropE (OB.APObjectInvalid err) = AdditionalPropertiesObject err
-
-refE :: AN.RefInvalid ValidatorChain -> ValidatorChain
-refE AN.RefResolution    = RefResolution
-refE AN.RefLoop          = RefLoop
-refE (AN.RefInvalid err) = Ref err
-
-oneOfE :: AN.OneOfInvalid ValidatorChain -> ValidatorChain
-oneOfE AN.TooManySuccesses  = OneOfTooManySuccesses
-oneOfE (AN.NoSuccesses err) = OneOfNoSuccesses err

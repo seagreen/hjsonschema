@@ -7,14 +7,14 @@
 module Data.Validator.Reference where
 
 import           Import
-import           Prelude
 
-import qualified Data.Aeson.Pointer     as AP
 import qualified Data.Text              as T
 import           Data.Text.Encoding     (decodeUtf8, encodeUtf8)
+import qualified JSONPointer            as JP
 import           Network.HTTP.Types.URI (urlDecode)
 import           System.FilePath        ((</>), dropFileName)
 
+-- | TODO: Replace these with actual URI data types.
 type URIBase = Maybe Text
 type URIBaseAndFragment = (Maybe Text, Maybe Text)
 
@@ -34,8 +34,8 @@ resolveFragment
 resolveFragment Nothing schema        = Just schema
 resolveFragment (Just pointer) schema = do
     let urlDecoded = decodeUtf8 . urlDecode True . encodeUtf8 $ pointer
-    p <- either (const Nothing) Just (AP.unescape urlDecoded)
-    x <- either (const Nothing) Just (AP.resolve p (toJSON schema))
+    p <- either (const Nothing) Just (JP.unescape urlDecoded)
+    x <- either (const Nothing) Just (JP.resolve p (toJSON schema))
     case fromJSON x of
         Error _         -> Nothing
         Success schema' -> Just schema'

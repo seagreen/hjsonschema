@@ -1,3 +1,17 @@
+# 1.3.0.0
+
++ Rewrite failure messages.
+
+We used to return a list of every failed validator, no matter how far it was buried within subschemas of the original schema.
+
+Now we return a tree of failure messages, so that if the first schema had only three validators, then no more than three top level failures will be returned.
+
++ Move the code to parse each validator from JSON from `Data.Validator.Draft4` into the validators' modules themselves.
+
++ Switch from Prelude to Protolude.
+
++ Switch `Data.JsonSchema.Fetch` from lazy to strict bytestrings.
+
 # 1.2.0.2
 
 + Bump hspec.
@@ -8,8 +22,7 @@
 
 # 1.2.0.0
 
-+ Return `AdditionalPropertiesObject` error correctly (was mistakenly
-returning `AdditionalItemsObject` instead.
++ Return `AdditionalPropertiesObject` error correctly (was mistakenly returning `AdditionalItemsObject` instead.
 + Don't silence errors resulting from subschemas of "anyOf" or "oneOf".
 
 # 1.1.0.1
@@ -18,33 +31,23 @@ returning `AdditionalItemsObject` instead.
 
 # 1.1.0.0
 
-+ Rename `schemaForSchemas` to `metaSchema` and `schemaForSchemasBytes` to
-`metaSchemaBytes`.
++ Rename `schemaForSchemas` to `metaSchema` and `schemaForSchemasBytes` to `metaSchemaBytes`.
 
 # 1.0.0.0
 
 ## Bug fixes:
 
-+ Fix JSON Pointer bug. Pointers were being built in reverse order and so were
-totally invalid.
-+ Use `.:!` instead of `.:?` to parse the draft 4 schema. The only way to omit
-optional fields in JSON Schema Draft 4 is to omit them entirely, `"null"`
-can't be used for this.
++ Fix JSON Pointer bug. Pointers were being built in reverse order and so were totally invalid.
++ Use `.:!` instead of `.:?` to parse the draft 4 schema. The only way to omit optional fields in JSON Schema Draft 4 is to omit them entirely, `"null"` can't be used for this.
 
 ## API Changes:
 
 + Add referenced schema loop detection.
 + Add a new `referencesValidity` function.
-+ `checkSchema` now checks referenced schema's validity in addition to the
-starting schema's validity. This change bubbles up to the one-step validation
-functions as well.
-+ Switch most of the fetching code to use `URISchemaMap` instead of
-`ReferencedSchemas`. It didn't need to know about the more complicated data
-type.
-+ Rething failure related names. Change `Invalid` to `Failure`, add a new
-`Invalid` type alias which is only used for final results.
-+ Failures now include the failing part of the data as well as a JSON Pointer to
-it, so you don't have to worry about resolving the pointer.
++ `checkSchema` now checks referenced schema's validity in addition to the starting schema's validity. This change bubbles up to the one-step validation functions as well.
++ Switch most of the fetching code to use `URISchemaMap` instead of `ReferencedSchemas`. It didn't need to know about the more complicated data type.
++ Rething failure related names. Change `Invalid` to `Failure`, add a new `Invalid` type alias which is only used for final results.
++ Failures now include the failing part of the data as well as a JSON Pointer to it, so you don't have to worry about resolving the pointer.
 
 ## Fundamental Changes:
 
@@ -73,8 +76,7 @@ it, so you don't have to worry about resolving the pointer.
 
 + Rewrite fetching internals.
 + Fix reference resolution defects, add more tests.
-+ Switch to a Perl style regex library, which is closer to ECMAScript regexes
-than the previous Posix style one.
++ Switch to a Perl style regex library, which is closer to ECMAScript regexes than the previous Posix style one.
 + Add one-step validation functions ('fetchFilesystemAndValidate' and 'fetchHTTPAndValidate').
 + Alias the validation failure type exported by 'Data.JsonSchema.Draft4' to
 'Invalid', change its field names.
@@ -90,11 +92,8 @@ folder for how to use the new one.
 
 + Improve scope updating and resolving.
 + Rename RawSchema's _rsObject field to _rsData.
-+ Make RawSchema's _rsURI field a Maybe. This way schemas without a starting
-URI can say so explicitly with Nothing instead of with "".
-+ Rename Graph to SchemaGraph. Declare it with data instead of type. Give it a
-field referencing the starting schema. This field is used to find the curent
-schema if no URI is in scope and a self-referencing $ref is found (e.g. "#").
++ Make RawSchema's _rsURI field a Maybe. This way schemas without a starting URI can say so explicitly with Nothing instead of with "".
++ Rename Graph to SchemaGraph. Declare it with data instead of type. Give it a field referencing the starting schema. This field is used to find the curent schema if no URI is in scope and a self-referencing $ref is found (e.g. "#").
 + Change the order of the last two arguments to fetchReferencedSchemas.
 
 # 0.7.1
@@ -105,13 +104,10 @@ schema if no URI is in scope and a self-referencing $ref is found (e.g. "#").
 
 Change error type from Text to ValidationFailure.
 
-Revert the 0.6 changes to validate. Also switch from Vector
-to list. Validate is now:
+Revert the 0.6 changes to validate. Also switch from Vector to list. Validate is now:
   Schema err -> Value -> [ValidationFailure err]
 
-Add fetchReferencedSchemas', which lets the user provide their
-own MonadIO function to be used when fetching schemas. This lets
-them do things like only fetch schemas from particular domains.
+Add fetchReferencedSchemas', which lets the user provide their own MonadIO function to be used when fetching schemas. This lets them do things like only fetch schemas from particular domains.
 
 # 0.6
 
@@ -131,8 +127,7 @@ Change Schema
 
 # 0.5.2
 
-+ Add convenience function for validating and compiling draft 4 schemas
-simultaneously.
++ Add convenience function for validating and compiling draft 4 schemas simultaneously.
 
 # 0.5.1
 
