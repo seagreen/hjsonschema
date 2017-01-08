@@ -1,3 +1,7 @@
+# 1.3.0.1
+
++ Bump `vector`.
+
 # 1.3.0.0
 
 + Rewrite failure messages.
