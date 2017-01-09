@@ -9,7 +9,7 @@ import           Import
 import qualified Data.HashMap.Strict                           as HM
 import qualified Data.List.NonEmpty                            as NE
 import           Data.Set                                      (Set)
-import qualified Data.Set                                      as S
+import qualified Data.Set                                      as Set
 import qualified Data.Text                                     as T
 
 import           JSONSchema.Validator.Draft4.Object.Properties
@@ -88,19 +88,26 @@ instance Arbitrary Required where
     arbitrary = do
         x  <- arbitraryText -- Guarantee at least one element.
         xs <- (fmap.fmap) T.pack arbitrary
-        pure . Required . S.fromList $ x:xs
+        pure . Required . Set.fromList $ x:xs
 
-requiredVal :: Required -> HashMap Text Value -> Maybe ()
-requiredVal (Required ts) x
+data RequiredInvalid
+    = RequiredInvalid Required (Set Text) (HashMap Text Value)
+    deriving (Eq, Show)
+
+requiredVal :: Required -> HashMap Text Value -> Maybe RequiredInvalid
+requiredVal r@(Required ts) x
     -- NOTE: When we no longer need to support GHCs before 7.10
     -- we can use null from Prelude throughout the library
     -- instead of specialized versions.
-    | S.null ts                    = Nothing
-    | HM.null (HM.difference hm x) = Nothing
-    | otherwise                    = Just () -- TODO
+    | Set.null ts        = Nothing
+    | Set.null leftovers = Nothing
+    | otherwise          = Just (RequiredInvalid r leftovers x)
   where
-    hm :: HashMap Text Bool
-    hm = foldl (\b a -> HM.insert a True b) mempty ts
+    leftovers :: Set Text
+    leftovers =
+        Set.difference -- Items of the first set not in the second.
+            ts
+            (Set.fromList (HM.keys x))
 
 --------------------------------------------------
 -- * dependencies

@@ -111,7 +111,7 @@ minPropertiesValidator
            MinPropertiesInvalid
 minPropertiesValidator = Validator noEmbedded (run minPropertiesVal)
 
-requiredValidator :: Validator a (Maybe Required) ()
+requiredValidator :: Validator a (Maybe Required) RequiredInvalid
 requiredValidator = Validator noEmbedded (run requiredVal)
 
 dependenciesValidator

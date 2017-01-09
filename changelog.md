@@ -1,3 +1,5 @@
++ Report details of `"required"` validator failure.
+
 # 1.4.0.0
 
 + Rename `Data.JsonSchema.*` modules to `JSONSchema.*`.
