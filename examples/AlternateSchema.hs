@@ -1,8 +1,8 @@
 -- | An implementation of JSON Schema Draft 4 based on 'HashMap Text Value'
--- instead of a custom record type like 'Data.JsonSchema.Draft4'.
+-- instead of a custom record type like 'JSONSchema.Draft4'.
 --
 -- If you're writing code for a new schema specification you probably want
--- to copy this module instead of the 'Data.JsonSchema.Draft4'. While it's
+-- to copy this module instead of the 'JSONSchema.Draft4'. While it's
 -- less convenient to write schemas in Haskell without a record type, you
 -- can get the implementation finished with far fewer lines of code.
 
@@ -10,23 +10,23 @@ module AlternateSchema where
 
 import           Protolude
 
-import           Data.Aeson               (FromJSON(..), Value(..),
-                                           decode)
-import qualified Data.Aeson               as AE
-import qualified Data.ByteString.Lazy     as LBS
-import qualified Data.HashMap.Strict      as HM
-import           Data.Maybe               (fromMaybe)
-import           Data.Profunctor          (Profunctor (..))
+import           Data.Aeson                     (FromJSON(..), Value(..),
+                                                 decode)
+import qualified Data.Aeson                     as AE
+import qualified Data.ByteString.Lazy           as LBS
+import qualified Data.HashMap.Strict            as HM
+import           Data.Maybe                     (fromMaybe)
+import           Data.Profunctor                (Profunctor (..))
 
-import           Data.JsonSchema.Draft4   (ValidatorFailure(..),
-                                           metaSchemaBytes)
-import           Data.JsonSchema.Fetch    (ReferencedSchemas(..),
-                                           SchemaWithURI(..))
-import qualified Data.JsonSchema.Fetch    as FE
-import           Data.JsonSchema.Types    (Schema(..), Spec(..))
-import qualified Data.JsonSchema.Types    as JT
-import qualified Data.Validator.Draft4    as D4
-import           Data.Validator.Reference (updateResolutionScope)
+import           JSONSchema.Draft4              (ValidatorFailure(..),
+                                                 metaSchemaBytes)
+import           JSONSchema.Fetch               (ReferencedSchemas(..),
+                                                 SchemaWithURI(..))
+import qualified JSONSchema.Fetch               as FE
+import           JSONSchema.Types               (Schema(..), Spec(..))
+import qualified JSONSchema.Types               as JT
+import qualified JSONSchema.Validator.Draft4    as D4
+import           JSONSchema.Validator.Reference (updateResolutionScope)
 
 --------------------------------------------------
 -- * Basic fetching tools
@@ -107,7 +107,7 @@ d4Spec
     -> Maybe Text
     -> Spec Schema ValidatorFailure
        -- ^ Here we reuses 'ValidatorFailure' from
-       -- 'Data.JsonSchema.Draft4.Failure'. If your validators have different
+       -- 'JSONSchema.Draft4.Failure'. If your validators have different
        -- failure possibilities you'll need to create your own validator
        -- failure type.
 d4Spec referenced visited scope =

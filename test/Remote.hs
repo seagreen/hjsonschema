@@ -10,10 +10,10 @@ import           Network.Wai.Application.Static (defaultFileServerSettings,
 import           Network.Wai.Handler.Warp       (run)
 import           Test.Hspec
 
-import qualified Data.JsonSchema.Draft4         as D4
-import           Data.JsonSchema.Fetch          (ReferencedSchemas(..),
-                                                URISchemaMap(..))
-import qualified Data.JsonSchema.Types          as JT
+import qualified JSONSchema.Draft4              as D4
+import           JSONSchema.Fetch               (ReferencedSchemas(..),
+                                                     URISchemaMap(..))
+import qualified JSONSchema.Types               as JT
 import           Shared
 
 -- Examples

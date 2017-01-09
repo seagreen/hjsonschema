@@ -1,5 +1,5 @@
 
-module Data.Validator.Draft4.Number where
+module JSONSchema.Validator.Draft4.Number where
 
 import           Import
 

@@ -1,5 +1,5 @@
 name:               hjsonschema
-version:            1.3.0.1
+version:            1.4.0.0
 synopsis:           JSON Schema library
 homepage:           https://github.com/seagreen/hjsonschema
 license:            MIT
@@ -38,23 +38,23 @@ library
   ghc-options:
     -Wall
   exposed-modules:
-      Data.JsonSchema.Draft4
-    , Data.JsonSchema.Draft4.Failure
-    , Data.JsonSchema.Draft4.Schema
-    , Data.JsonSchema.Draft4.Spec
-    , Data.JsonSchema.Fetch
-    , Data.JsonSchema.Types
-    , Data.Validator.Draft4
-    , Data.Validator.Draft4.Any
-    , Data.Validator.Draft4.Array
-    , Data.Validator.Draft4.Number
-    , Data.Validator.Draft4.Object
-    , Data.Validator.Draft4.String
-    , Data.Validator.Reference
-    , Data.Validator.Types
-    , Data.Validator.Utils
+      JSONSchema.Draft4
+    , JSONSchema.Draft4.Failure
+    , JSONSchema.Draft4.Schema
+    , JSONSchema.Draft4.Spec
+    , JSONSchema.Fetch
+    , JSONSchema.Types
+    , JSONSchema.Validator.Draft4
+    , JSONSchema.Validator.Draft4.Any
+    , JSONSchema.Validator.Draft4.Array
+    , JSONSchema.Validator.Draft4.Number
+    , JSONSchema.Validator.Draft4.Object
+    , JSONSchema.Validator.Draft4.String
+    , JSONSchema.Validator.Reference
+    , JSONSchema.Validator.Types
+    , JSONSchema.Validator.Utils
   other-modules:
-      Data.Validator.Draft4.Object.Properties
+      JSONSchema.Validator.Draft4.Object.Properties
     , Import
   build-depends:
       base                 >= 4.7    && < 4.10

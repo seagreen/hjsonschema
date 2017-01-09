@@ -8,9 +8,9 @@ import           Test.Hspec
 import qualified Data.Vector                 as V
 import qualified JSONPointer                 as JP
 
-import           Data.JsonSchema.Draft4
-import qualified Data.JsonSchema.Draft4.Spec as Spec
-import qualified Data.Validator.Draft4       as D4
+import           JSONSchema.Draft4
+import qualified JSONSchema.Draft4.Spec      as Spec
+import qualified JSONSchema.Validator.Draft4 as VAL
 
 spec :: Spec
 spec = do
@@ -21,9 +21,9 @@ spec = do
 itemsArray :: Expectation
 itemsArray =
     failures `shouldBe`
-        [ FailureItems (D4.ItemsArrayInvalid (
+        [ FailureItems (VAL.ItemsArrayInvalid (
             pure ( JP.Index 0
-                 , pure (FailureUniqueItems (D4.UniqueItemsInvalid
+                 , pure (FailureUniqueItems (VAL.UniqueItemsInvalid
                        (V.fromList [Null, Null])
                    ))
                  )
@@ -35,7 +35,7 @@ itemsArray =
 
     schema :: Schema
     schema = emptySchema
-        { _schemaItems = Just $ D4.ItemsArray
+        { _schemaItems = Just $ VAL.ItemsArray
             [emptySchema { _schemaUniqueItems = Just True }]
         }
 
@@ -51,9 +51,9 @@ itemsArray =
 itemsObject :: Expectation
 itemsObject =
     failures `shouldBe`
-        [ FailureItems (D4.ItemsObjectInvalid (
+        [ FailureItems (VAL.ItemsObjectInvalid (
             pure ( JP.Index 1
-                 , pure (FailureUniqueItems (D4.UniqueItemsInvalid
+                 , pure (FailureUniqueItems (VAL.UniqueItemsInvalid
                        (V.fromList [Null, Null])
                    ))
                  )
@@ -65,7 +65,7 @@ itemsObject =
 
     schema :: Schema
     schema = emptySchema
-        { _schemaItems = Just $ D4.ItemsObject
+        { _schemaItems = Just $ VAL.ItemsObject
             (emptySchema { _schemaUniqueItems = Just True })
         }
 
@@ -81,9 +81,9 @@ itemsObject =
 loopRef :: Expectation
 loopRef =
     failures `shouldBe`
-        [ FailureRef (D4.RefLoop
+        [ FailureRef (VAL.RefLoop
             "#"
-            (D4.VisitedSchemas [(Nothing, Nothing)])
+            (VAL.VisitedSchemas [(Nothing, Nothing)])
             (Nothing, Nothing)
           )
         ]

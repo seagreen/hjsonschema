@@ -5,7 +5,7 @@ import           Protolude
 
 import           Test.Hspec
 
-import           Data.Validator.Reference
+import           JSONSchema.Validator.Reference
 
 spec :: Spec
 spec = do

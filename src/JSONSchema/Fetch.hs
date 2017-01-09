@@ -1,19 +1,19 @@
 
-module Data.JsonSchema.Fetch where
+module JSONSchema.Fetch where
 
 import           Import
 
-import           Control.Arrow            (left)
-import           Control.Exception        (IOException, catch)
-import           Control.Monad            (foldM)
-import qualified Data.ByteString          as BS
-import qualified Data.ByteString.Lazy     as LBS
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.Text                as T
-import qualified Network.HTTP.Client      as NC
+import           Control.Arrow                  (left)
+import           Control.Exception              (IOException, catch)
+import           Control.Monad                  (foldM)
+import qualified Data.ByteString                as BS
+import qualified Data.ByteString.Lazy           as LBS
+import qualified Data.HashMap.Strict            as HM
+import qualified Data.Text                      as T
+import qualified Network.HTTP.Client            as NC
 
-import           Data.Validator.Reference (resolveReference,
-                                           updateResolutionScope)
+import           JSONSchema.Validator.Reference (resolveReference,
+                                                 updateResolutionScope)
 
 --------------------------------------------------
 -- * Types

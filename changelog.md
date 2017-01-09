@@ -1,3 +1,8 @@
+# 1.4.0.0
+
++ Rename `Data.JsonSchema.*` modules to `JSONSchema.*`.
++ Rename `Data.Validator.*` modules to `JSONSchema.Validator.*`.
+
 # 1.3.0.1
 
 + Bump `vector`.

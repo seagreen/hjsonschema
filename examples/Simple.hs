@@ -3,12 +3,12 @@ module Simple where
 
 import           Protolude
 
-import           Data.Aeson             (Value(..), decode, toJSON)
-import qualified Data.ByteString.Lazy   as LBS
-import qualified Data.List.NonEmpty     as NE
-import           Data.Maybe             (fromMaybe)
+import           Data.Aeson           (Value(..), decode, toJSON)
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.List.NonEmpty   as NE
+import           Data.Maybe           (fromMaybe)
 
-import qualified Data.JsonSchema.Draft4 as D4
+import qualified JSONSchema.Draft4    as D4
 
 badData :: Value
 badData = toJSON [True, True]

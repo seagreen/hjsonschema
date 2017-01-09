@@ -15,11 +15,11 @@ module TwoStep where
 
 import           Protolude
 
-import           Data.Aeson             (Value (..), toJSON)
-import qualified Data.List.NonEmpty     as NE
+import           Data.Aeson                  (Value (..), toJSON)
+import qualified Data.List.NonEmpty          as NE
 
-import qualified Data.JsonSchema.Draft4 as D4
-import qualified Data.Validator.Draft4  as VAL
+import qualified JSONSchema.Draft4           as D4
+import qualified JSONSchema.Validator.Draft4 as VAL
 
 schema :: D4.Schema
 schema = D4.emptySchema { D4._schemaRef = Just "./unique.json" }

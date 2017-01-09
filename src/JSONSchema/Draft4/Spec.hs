@@ -1,20 +1,20 @@
 
-module Data.JsonSchema.Draft4.Spec where
+module JSONSchema.Draft4.Spec where
 
 import           Import
 
 import           Data.Maybe                     (fromMaybe)
 import           Data.Profunctor                (Profunctor(..))
 
-import           Data.JsonSchema.Draft4.Failure
-import           Data.JsonSchema.Draft4.Schema  (Schema(..))
-import           Data.JsonSchema.Fetch          (ReferencedSchemas(..),
+import           JSONSchema.Draft4.Failure
+import           JSONSchema.Draft4.Schema       (Schema(..))
+import           JSONSchema.Fetch               (ReferencedSchemas(..),
                                                  SchemaWithURI(..))
-import qualified Data.JsonSchema.Fetch          as FE
-import           Data.JsonSchema.Types          (Spec(..))
-import qualified Data.JsonSchema.Types          as JT
-import           Data.Validator.Draft4
-import           Data.Validator.Reference       (updateResolutionScope)
+import qualified JSONSchema.Fetch               as FE
+import           JSONSchema.Types               (Spec(..))
+import qualified JSONSchema.Types               as JT
+import           JSONSchema.Validator.Draft4
+import           JSONSchema.Validator.Reference (updateResolutionScope)
 
 embedded :: Schema -> ([Schema], [Schema])
 embedded s = JT.embedded (d4Spec (ReferencedSchemas s mempty) mempty Nothing) s

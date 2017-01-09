@@ -1,17 +1,17 @@
 
-module Data.JsonSchema.Draft4.Schema where
+module JSONSchema.Draft4.Schema where
 
-import           Import                hiding (mapMaybe)
+import           Import                      hiding (mapMaybe)
 
-import qualified Data.HashMap.Strict   as HM
-import           Data.List.NonEmpty    (NonEmpty)
-import           Data.Maybe            (fromJust, isJust)
+import qualified Data.HashMap.Strict         as HM
+import           Data.List.NonEmpty          (NonEmpty)
+import           Data.Maybe                  (fromJust, isJust)
 import           Data.Scientific
-import qualified Data.Set              as Set
-import qualified Data.Text             as T
+import qualified Data.Set                    as Set
+import qualified Data.Text                   as T
 
-import qualified Data.Validator.Draft4 as D4
-import           Data.Validator.Utils
+import qualified JSONSchema.Validator.Draft4 as D4
+import           JSONSchema.Validator.Utils
 
 data Schema = Schema
     { _schemaVersion              :: Maybe Text

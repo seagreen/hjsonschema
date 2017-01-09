@@ -1,5 +1,5 @@
 
-module Data.Validator.Types where
+module JSONSchema.Validator.Types where
 
 import           Import
 

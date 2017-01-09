@@ -1,19 +1,20 @@
 
-module Data.Validator.Draft4.Any where
+module JSONSchema.Validator.Draft4.Any where
 
 import           Import
 
-import           Data.List.NonEmpty       (NonEmpty((:|)))
-import qualified Data.List.NonEmpty       as NE
-import qualified Data.Scientific          as SCI
-import           Data.Semigroup           (Semigroup) -- for older GHCs
-import           Data.Set                 (Set)
-import qualified Data.Set                 as S
-import qualified JSONPointer              as JP
+import           Data.List.NonEmpty             (NonEmpty((:|)))
+import qualified Data.List.NonEmpty             as NE
+import qualified Data.Scientific                as SCI
+import           Data.Semigroup                 (Semigroup) -- for older GHCs
+import           Data.Set                       (Set)
+import qualified Data.Set                       as S
+import qualified JSONPointer                    as JP
 
-import qualified Data.Validator.Utils     as UT
-import           Data.Validator.Reference (URIBaseAndFragment,
-                                           resolveFragment, resolveReference)
+import qualified JSONSchema.Validator.Utils     as UT
+import           JSONSchema.Validator.Reference (URIBaseAndFragment,
+                                                 resolveFragment,
+                                                 resolveReference)
 
 --------------------------------------------------
 -- * $ref
@@ -125,7 +126,7 @@ enumVal a@(EnumValidator vs) x
 --------------------------------------------------
 
 -- | This is separate from 'TypeValidator' so that 'TypeValidator' can
--- be used to write 'Data.JsonSchema.Draft4.Schema.Schema' without
+-- be used to write 'JSONSchema.Draft4.Schema.Schema' without
 -- messing up the 'FromJSON' instance of that data type.
 newtype TypeContext
     = TypeContext { _unTypeContext :: TypeValidator }

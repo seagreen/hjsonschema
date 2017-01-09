@@ -1,18 +1,17 @@
 
 module Local.Validation where
 
-import           Protolude              hiding (msg)
+import           Protolude           hiding (msg)
 
 import           Data.Aeson
-import qualified Data.Aeson             as AE
-import qualified Data.HashMap.Strict    as HM
-import           Data.String            (String)
+import qualified Data.Aeson          as AE
+import qualified Data.HashMap.Strict as HM
+import           Data.String         (String)
 import           Test.Hspec
 
-import           Data.JsonSchema.Draft4
-import qualified Data.JsonSchema.Types  as JT
-
-import qualified AlternateSchema        as AS
+import           JSONSchema.Draft4
+import qualified JSONSchema.Types    as JT
+import qualified AlternateSchema     as AS
 
 spec :: Spec
 spec = do

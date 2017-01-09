@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Data.JsonSchema.Draft4
+module JSONSchema.Draft4
     ( -- * Draft 4 Schema
       SchemaWithURI(..)
     , Schema(..)
@@ -38,23 +38,23 @@ module Data.JsonSchema.Draft4
 
 import           Import
 
-import           Control.Arrow                   (left)
-import qualified Data.ByteString                 as BS
-import           Data.FileEmbed                  (embedFile,
-                                                  makeRelativeToProject)
-import qualified Data.HashMap.Strict             as HM
-import qualified Data.List.NonEmpty              as NE
-import           Data.Maybe                      (fromMaybe)
+import           Control.Arrow             (left)
+import qualified Data.ByteString           as BS
+import           Data.FileEmbed            (embedFile,
+                                            makeRelativeToProject)
+import qualified Data.HashMap.Strict       as HM
+import qualified Data.List.NonEmpty        as NE
+import           Data.Maybe                (fromMaybe)
 
-import           Data.JsonSchema.Draft4.Failure  (Invalid(..),
-                                                  SchemaInvalid(..),
-                                                  ValidatorFailure(..))
-import           Data.JsonSchema.Draft4.Schema   (Schema)
-import qualified Data.JsonSchema.Draft4.Schema   as SC
-import qualified Data.JsonSchema.Draft4.Spec     as Spec
-import           Data.JsonSchema.Fetch           (ReferencedSchemas(..),
-                                                  SchemaWithURI(..))
-import qualified Data.JsonSchema.Fetch           as FE
+import           JSONSchema.Draft4.Failure (Invalid(..),
+                                            SchemaInvalid(..),
+                                            ValidatorFailure(..))
+import           JSONSchema.Draft4.Schema  (Schema)
+import qualified JSONSchema.Draft4.Schema  as SC
+import qualified JSONSchema.Draft4.Spec    as Spec
+import           JSONSchema.Fetch          (ReferencedSchemas(..),
+                                            SchemaWithURI(..))
+import qualified JSONSchema.Fetch          as FE
 
 data HTTPValidationFailure
     = HVRequest FE.HTTPFailure
@@ -115,7 +115,7 @@ fetchFilesystemAndValidate sw v = do
                                     , _invalidFailures = invalid
                                     })
 
--- | An instance of 'Data.JsonSchema.Fetch.FetchInfo' specialized for
+-- | An instance of 'JSONSchema.Fetch.FetchInfo' specialized for
 -- JSON Schema Draft 4.
 draft4FetchInfo :: FE.FetchInfo Schema
 draft4FetchInfo = FE.FetchInfo Spec.embedded SC._schemaId SC._schemaRef

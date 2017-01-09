@@ -4,7 +4,7 @@
 -- And is extended for JSON Schema here:
 -- <http://json-schema.org/latest/json-schema-core.html#anchor26>
 
-module Data.Validator.Reference where
+module JSONSchema.Validator.Reference where
 
 import           Import
 

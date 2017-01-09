@@ -1,24 +1,24 @@
 -- | Turn the validation functions into actual 'Validator's.
 
-module Data.Validator.Draft4
-    ( module Data.Validator.Draft4
+module JSONSchema.Validator.Draft4
+    ( module JSONSchema.Validator.Draft4
     , module Export
     ) where
 
 import           Import
 
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.List.NonEmpty           as NE
-import           Data.Maybe                   (catMaybes, maybe, maybeToList)
-import           Data.Text                    (Text)
+import qualified Data.HashMap.Strict                as HM
+import qualified Data.List.NonEmpty                 as NE
+import           Data.Maybe                         (catMaybes, maybe, maybeToList)
+import           Data.Text                          (Text)
 
-import           Data.Validator.Draft4.Any    as Export
-import           Data.Validator.Draft4.Array  as Export
-import           Data.Validator.Draft4.Number as Export
-import           Data.Validator.Draft4.Object as Export
-import           Data.Validator.Draft4.String as Export
-import           Data.Validator.Types         (Validator(..))
-import           Data.Validator.Utils         (fromJSONEither)
+import           JSONSchema.Validator.Draft4.Any    as Export
+import           JSONSchema.Validator.Draft4.Array  as Export
+import           JSONSchema.Validator.Draft4.Number as Export
+import           JSONSchema.Validator.Draft4.Object as Export
+import           JSONSchema.Validator.Draft4.String as Export
+import           JSONSchema.Validator.Types         (Validator(..))
+import           JSONSchema.Validator.Utils         (fromJSONEither)
 
 -- | For internal use.
 --

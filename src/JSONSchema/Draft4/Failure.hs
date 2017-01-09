@@ -1,10 +1,10 @@
 
-module Data.JsonSchema.Draft4.Failure where
+module JSONSchema.Draft4.Failure where
 
 import           Import
 
-import           Data.JsonSchema.Draft4.Schema (Schema)
-import qualified Data.Validator.Draft4         as D4
+import           JSONSchema.Draft4.Schema    (Schema)
+import qualified JSONSchema.Validator.Draft4 as D4
 
 -- | Used to report an entire instance being invalidated, as opposed
 -- to the failure of a single validator.

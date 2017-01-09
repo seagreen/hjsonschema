@@ -1,13 +1,13 @@
 
-module Data.Validator.Draft4.Array where
+module JSONSchema.Validator.Draft4.Array where
 
 import           Import
 
-import qualified Data.List.NonEmpty   as NE
-import qualified Data.Vector          as V
-import qualified JSONPointer          as JP
+import qualified Data.List.NonEmpty         as NE
+import qualified Data.Vector                as V
+import qualified JSONPointer                as JP
 
-import           Data.Validator.Utils (allUniqueValues)
+import           JSONSchema.Validator.Utils (allUniqueValues)
 
 --------------------------------------------------
 -- * maxItems
