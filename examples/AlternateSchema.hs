@@ -11,9 +11,8 @@ module AlternateSchema where
 import           Protolude
 
 import           Data.Aeson                     (FromJSON(..), Value(..),
-                                                 decode)
+                                                 decodeStrict)
 import qualified Data.Aeson                     as AE
-import qualified Data.ByteString.Lazy           as LBS
 import qualified Data.HashMap.Strict            as HM
 import           Data.Maybe                     (fromMaybe)
 import           Data.Profunctor                (Profunctor (..))
@@ -66,8 +65,7 @@ validate rs = continueValidating rs (D4.VisitedSchemas [(Nothing, Nothing)])
 metaSchema :: Schema
 metaSchema =
       fromMaybe (panic "Schema decode failed (this should never happen)")
-    . decode
-    . LBS.fromStrict
+    . decodeStrict
     $ metaSchemaBytes
 
 checkSchema :: Schema -> [ValidatorFailure]

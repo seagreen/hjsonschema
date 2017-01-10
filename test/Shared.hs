@@ -3,15 +3,15 @@ module Shared where
 
 import           Protolude
 
-import           Control.Monad        (fail)
+import           Control.Monad    (fail)
 import           Data.Aeson
-import           Data.Aeson.TH
-import qualified Data.ByteString.Lazy as LBS
-import           Data.Char            (toLower)
-import           Data.List            (stripPrefix, unlines)
-import qualified Data.Text            as T
-import qualified System.Directory     as SD
-import           System.FilePath      ((</>))
+import           Data.Aeson.TH    (fieldLabelModifier)
+import qualified Data.ByteString  as BS
+import           Data.Char        (toLower)
+import           Data.List        (stripPrefix, unlines)
+import qualified Data.Text        as T
+import qualified System.Directory as SD
+import           System.FilePath  ((</>))
 import           Test.Hspec
 
 -- Recursively return the contents of a directory
@@ -86,8 +86,8 @@ readSchemaTests dir filterFunc = do
     fileToCases :: FilePath -> IO [SchemaTest]
     fileToCases name = do
         let fullPath = dir </> name
-        jsonBS <- LBS.readFile fullPath
-        case eitherDecode jsonBS of
+        jsonBS <- BS.readFile fullPath
+        case eitherDecodeStrict jsonBS of
             Left e -> fail $ "couldn't parse file '" <> fullPath <> "': " <> e
             Right schemaTests -> pure $ prependFileName name <$> schemaTests
 

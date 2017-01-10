@@ -3,20 +3,20 @@ module Simple where
 
 import           Protolude
 
-import           Data.Aeson           (Value(..), decode, toJSON)
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.List.NonEmpty   as NE
-import           Data.Maybe           (fromMaybe)
+import           Data.Aeson         (Value(..), decodeStrict, toJSON)
+import qualified Data.ByteString    as BS
+import qualified Data.List.NonEmpty as NE
+import           Data.Maybe         (fromMaybe)
 
-import qualified JSONSchema.Draft4    as D4
+import qualified JSONSchema.Draft4  as D4
 
 badData :: Value
 badData = toJSON [True, True]
 
 example :: IO ()
 example = do
-    bts <- LBS.readFile "./examples/json/unique.json"
-    let schema = fromMaybe (panic "Invalid schema JSON.") (decode bts)
+    bts <- BS.readFile "./examples/json/unique.json"
+    let schema = fromMaybe (panic "Invalid schema JSON.") (decodeStrict bts)
         schemaWithURI = D4.SchemaWithURI
                             schema
                             Nothing -- This would be the URI of the schema
