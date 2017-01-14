@@ -1,4 +1,7 @@
+# 1.5.0.0
+
 + Report details of `"required"` validator failure.
++ Bump `directory`.
 
 # 1.4.0.0
 
