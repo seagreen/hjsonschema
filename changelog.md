@@ -1,3 +1,7 @@
+# 1.5.0.1
+
++ Raise test dep upper bounds.
+
 # 1.5.0.0
 
 + Report details of `"required"` validator failure.

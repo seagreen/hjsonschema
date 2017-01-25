@@ -5,6 +5,8 @@ haskell.lib.buildStackProject {
   inherit ghc;
   buildInputs = [
     pkgconfig
+    zlib
+
     pcre
 
     # for `git:` references in stack.yml:

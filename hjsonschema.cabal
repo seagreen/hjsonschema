@@ -1,5 +1,5 @@
 name:               hjsonschema
-version:            1.5.0.0
+version:            1.5.0.1
 synopsis:           JSON Schema library
 homepage:           https://github.com/seagreen/hjsonschema
 license:            MIT
@@ -119,8 +119,8 @@ test-suite local
     , vector
 
     -- directory-1.2.5 required for `listDirectory`:
-    , directory            >= 1.2.5 && < 1.4
-    , hspec                >= 2.2 && < 2.4
+    , directory            >= 1.2.5 && < 2.0
+    , hspec                >= 2.2 && < 3.0
 
 test-suite remote
   hs-source-dirs:
