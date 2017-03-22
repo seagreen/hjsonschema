@@ -1,4 +1,7 @@
 -- | Turn the validation functions into actual 'Validator's.
+--
+-- This is frankly a lot of busywork. It can perhaps be moved into the
+-- validator modules themselves once we're sure this is the right design.
 
 module JSONSchema.Validator.Draft4
     ( module JSONSchema.Validator.Draft4
@@ -9,16 +12,14 @@ import           Import
 
 import qualified Data.HashMap.Strict                as HM
 import qualified Data.List.NonEmpty                 as NE
-import           Data.Maybe                         (catMaybes, maybe, maybeToList)
-import           Data.Text                          (Text)
 
 import           JSONSchema.Validator.Draft4.Any    as Export
 import           JSONSchema.Validator.Draft4.Array  as Export
 import           JSONSchema.Validator.Draft4.Number as Export
 import           JSONSchema.Validator.Draft4.Object as Export
 import           JSONSchema.Validator.Draft4.String as Export
+import           JSONSchema.Validator.Reference     (BaseURI(..), Scope(..))
 import           JSONSchema.Validator.Types         (Validator(..))
-import           JSONSchema.Validator.Utils         (fromJSONEither)
 
 -- | For internal use.
 --
@@ -75,6 +76,8 @@ minItemsValidator = Validator noEmbedded (run minItemsVal)
 uniqueItemsValidator :: Validator a (Maybe UniqueItems) UniqueItemsInvalid
 uniqueItemsValidator = Validator noEmbedded (run uniqueItemsVal)
 
+-- TODO: Add tests to the language agnostic test suite to
+-- make sure @"additionalItems"@ subschemas are embedded correctly.
 itemsRelatedValidator
     :: (schema -> Value -> [err])
     -> Validator schema (ItemsRelated schema) (ItemsRelatedInvalid err)
@@ -159,9 +162,6 @@ instance FromJSON schema => FromJSON (Definitions schema) where
     parseJSON = withObject "Definitions" $ \o ->
         Definitions <$> o .: "definitions"
 
--- TODO: Add tests to the language agnostic test suite to
--- make sure these schemas are embedded correctly
--- (and do so for @"additionalItems"@ as well).
 definitionsEmbedded
     :: Validator
            schema
@@ -180,15 +180,16 @@ definitionsEmbedded =
 
 refValidator
     :: (FromJSON schema, ToJSON schema)
-    => VisitedSchemas
-    -> Maybe Text
-    -> (Maybe Text -> Maybe schema)
-    -> (VisitedSchemas -> Maybe Text -> schema -> Value -> [err])
+    => (Text -> Maybe schema)
+    -> (BaseURI -> schema -> BaseURI)
+    -> (VisitedSchemas -> Scope schema -> schema -> Value -> [err])
+    -> VisitedSchemas
+    -> Scope schema
     -> Validator a (Maybe Ref) (RefInvalid err)
-refValidator visited scope getRef f =
+refValidator getRef updateScope f visited scope =
     Validator
         noEmbedded
-        (run (refVal visited scope getRef f))
+        (run (refVal getRef updateScope f visited scope))
 
 enumValidator :: Validator a (Maybe EnumValidator) EnumInvalid
 enumValidator = Validator noEmbedded (run enumVal)

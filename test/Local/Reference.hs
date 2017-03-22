@@ -10,28 +10,28 @@ import           JSONSchema.Validator.Reference
 spec :: Spec
 spec = do
     it "updateResolutionScope gives correct results" $ do
-        updateResolutionScope Nothing Nothing
-            `shouldBe` Nothing
+        updateResolutionScope (BaseURI Nothing) Nothing
+            `shouldBe` BaseURI Nothing
 
-        updateResolutionScope Nothing (Just "#")
-            `shouldBe` Nothing
+        updateResolutionScope (BaseURI Nothing) (Just "#")
+            `shouldBe` BaseURI Nothing
 
-        updateResolutionScope Nothing (Just "foo")
-            `shouldBe` Just "foo"
+        updateResolutionScope (BaseURI Nothing) (Just "foo")
+            `shouldBe` BaseURI (Just "foo")
 
         -- TODO: Normalize after updateResolutionScope:
-        updateResolutionScope (Just "/foo") (Just "./bar")
-            `shouldBe` Just "/./bar"
+        updateResolutionScope (BaseURI (Just "/foo")) (Just "./bar")
+            `shouldBe` BaseURI (Just "/./bar")
 
     it "resolveReference  gives correct results" $ do
-        resolveReference (Just "/foo") "bar"
+        resolveReference (BaseURI (Just "/foo")) "bar"
             `shouldBe` (Just "/bar", Nothing)
 
-        resolveReference (Just "/foo/bar") "/baz"
+        resolveReference (BaseURI (Just "/foo/bar")) "/baz"
             `shouldBe` (Just "/baz", Nothing)
 
-        resolveReference Nothing "#/bar"
+        resolveReference (BaseURI Nothing) "#/bar"
             `shouldBe` (Nothing, Just "/bar")
 
-        resolveReference (Just "/foo") "#/bar"
+        resolveReference (BaseURI (Just "/foo")) "#/bar"
             `shouldBe` (Just "/foo", Just "/bar")

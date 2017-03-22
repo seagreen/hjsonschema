@@ -22,8 +22,7 @@ module JSONSchema.Draft4
     , ValidatorFailure(..)
 
       -- * Fetching tools
-    , ReferencedSchemas(..)
-    , FE.URISchemaMap(..)
+    , URISchemaMap(..)
     , referencesViaHTTP
     , referencesViaFilesystem
 
@@ -38,7 +37,6 @@ module JSONSchema.Draft4
 
 import           Import
 
-import           Control.Arrow             (left)
 import qualified Data.ByteString           as BS
 import           Data.FileEmbed            (embedFile,
                                             makeRelativeToProject)
@@ -52,8 +50,8 @@ import           JSONSchema.Draft4.Failure (Invalid(..),
 import           JSONSchema.Draft4.Schema  (Schema)
 import qualified JSONSchema.Draft4.Schema  as SC
 import qualified JSONSchema.Draft4.Spec    as Spec
-import           JSONSchema.Fetch          (ReferencedSchemas(..),
-                                            SchemaWithURI(..))
+import           JSONSchema.Fetch          (SchemaWithURI(..),
+                                            URISchemaMap(..))
 import qualified JSONSchema.Fetch          as FE
 
 data HTTPValidationFailure
@@ -70,11 +68,11 @@ fetchHTTPAndValidate
     -> IO (Either HTTPValidationFailure ())
 fetchHTTPAndValidate sw v = do
     res <- referencesViaHTTP sw
-    pure (g =<< f =<< left HVRequest res)
+    pure (g =<< f =<< first HVRequest res)
   where
     f :: FE.URISchemaMap Schema
       -> Either HTTPValidationFailure (Value -> [ValidatorFailure])
-    f references = left HVSchema (checkSchema references sw)
+    f references = first HVSchema (checkSchema references sw)
 
     g :: (Value -> [ValidatorFailure]) -> Either HTTPValidationFailure ()
     g val = case NE.nonEmpty (val v) of
@@ -100,11 +98,11 @@ fetchFilesystemAndValidate
     -> IO (Either FilesystemValidationFailure ())
 fetchFilesystemAndValidate sw v = do
     res <- referencesViaFilesystem sw
-    pure (g =<< f =<< left FVRead res)
+    pure (g =<< f =<< first FVRead res)
   where
     f :: FE.URISchemaMap Schema
       -> Either FilesystemValidationFailure (Value -> [ValidatorFailure])
-    f references = left FVSchema (checkSchema references sw)
+    f references = first FVSchema (checkSchema references sw)
 
     g :: (Value -> [ValidatorFailure]) -> Either FilesystemValidationFailure ()
     g val = case NE.nonEmpty (val v) of
@@ -143,10 +141,7 @@ checkSchema
 checkSchema sm sw =
     case NE.nonEmpty failures of
         Just fs -> Left (SchemaInvalid fs)
-        Nothing -> Right (Spec.specValidate
-                             (ReferencedSchemas (_swSchema sw)
-                                                (FE._unURISchemaMap sm))
-                             sw)
+        Nothing -> Right (Spec.specValidate sm sw)
   where
     failures :: [(Maybe Text, NonEmpty ValidatorFailure)]
     failures =
@@ -169,12 +164,11 @@ metaSchemaBytes =
 -- (if so the returned list will be empty).
 schemaValidity :: Schema -> [ValidatorFailure]
 schemaValidity =
-    Spec.specValidate referenced (SchemaWithURI metaSchema Nothing) . toJSON
+    Spec.specValidate schemaMap (SchemaWithURI metaSchema Nothing) . toJSON
   where
-    referenced :: ReferencedSchemas Schema
-    referenced = ReferencedSchemas
-                     metaSchema
-                     (HM.singleton "http://json-schema.org/draft-04/schema"
+    schemaMap :: URISchemaMap Schema
+    schemaMap =
+        URISchemaMap (HM.singleton "http://json-schema.org/draft-04/schema"
                                    metaSchema)
 
 -- | Check that a set of referenced schemas are valid

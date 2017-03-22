@@ -8,37 +8,29 @@ module JSONSchema.Validator.Reference where
 
 import           Import
 
-import qualified Data.Text              as T
-import           Data.Text.Encoding     (decodeUtf8, encodeUtf8)
-import qualified JSONPointer            as JP
-import           Network.HTTP.Types.URI (urlDecode)
-import           System.FilePath        ((</>), dropFileName)
+import qualified Data.Text       as T
+import           System.FilePath ((</>), dropFileName)
 
--- | TODO: Replace these with actual URI data types.
-type URIBase = Maybe Text
-type URIBaseAndFragment = (Maybe Text, Maybe Text)
+data Scope schema = Scope 
+    { _topLevelDocument :: schema
+    , _documentURI      :: Maybe Text
+    , _currentBaseURI   :: BaseURI
+    } deriving (Eq, Show)
 
-updateResolutionScope :: URIBase -> Maybe Text -> URIBase
-updateResolutionScope mScope idKeyword
-    | Just t <- idKeyword = fst . baseAndFragment $ resolveScopeAgainst mScope t
-    | otherwise           = mScope
+newtype BaseURI
+    = BaseURI { _unBaseURI :: Maybe Text }
+    deriving (Eq, Show)
 
-resolveReference :: URIBase -> Text -> URIBaseAndFragment
-resolveReference mScope t = baseAndFragment $ resolveScopeAgainst mScope t
+-- | TODO: no `type`s.
+type URIAndFragment = (Maybe Text, Maybe Text)
 
-resolveFragment
-    :: (FromJSON schema, ToJSON schema)
-    => Maybe Text
-    -> schema
-    -> Maybe schema
-resolveFragment Nothing schema        = Just schema
-resolveFragment (Just pointer) schema = do
-    let urlDecoded = decodeUtf8 . urlDecode True . encodeUtf8 $ pointer
-    p <- either (const Nothing) Just (JP.unescape urlDecoded)
-    x <- either (const Nothing) Just (JP.resolve p (toJSON schema))
-    case fromJSON x of
-        Error _         -> Nothing
-        Success schema' -> Just schema'
+updateResolutionScope :: BaseURI -> Maybe Text -> BaseURI
+updateResolutionScope base idKeyword
+    | Just t <- idKeyword = BaseURI . fst . baseAndFragment $ resolveScopeAgainst base t
+    | otherwise           = base
+
+resolveReference :: BaseURI -> Text -> URIAndFragment
+resolveReference base t = baseAndFragment (resolveScopeAgainst base t)
 
 --------------------------------------------------
 -- * Helpers
@@ -47,10 +39,10 @@ resolveFragment (Just pointer) schema = do
 isRemoteReference :: Text -> Bool
 isRemoteReference = T.isInfixOf "://"
 
-baseAndFragment :: Text -> URIBaseAndFragment
+baseAndFragment :: Text -> URIAndFragment
 baseAndFragment = f . T.splitOn "#"
   where
-    f :: [Text] -> URIBaseAndFragment
+    f :: [Text] -> URIAndFragment
     f [x]   = (g x, Nothing)
     f [x,y] = (g x, g y)
     f _     = (Nothing, Nothing)
@@ -58,9 +50,9 @@ baseAndFragment = f . T.splitOn "#"
     g "" = Nothing
     g x  = Just x
 
-resolveScopeAgainst :: Maybe Text -> Text -> Text
-resolveScopeAgainst Nothing t = t
-resolveScopeAgainst (Just scope) t
+resolveScopeAgainst :: BaseURI -> Text -> Text
+resolveScopeAgainst (BaseURI Nothing) t = t
+resolveScopeAgainst (BaseURI (Just base)) t
     | isRemoteReference t = t
     | otherwise           = smartAppend
   where
@@ -69,11 +61,11 @@ resolveScopeAgainst (Just scope) t
     -- to cut it off before appending.
     smartAppend :: Text
     smartAppend =
-        case baseAndFragment scope of
-            (Just base,_) ->
+        case baseAndFragment base of
+            (Just uri,_) ->
                 case T.unpack t of
                     -- We want "/foo" and "#/bar" to combine into
                     -- "/foo#/bar" not "/foo/#/bar".
                     '#':_ -> base <> t
-                    _     -> T.pack (dropFileName (T.unpack base) </> T.unpack t)
+                    _     -> T.pack (dropFileName (T.unpack uri) </> T.unpack t)
             _ -> t

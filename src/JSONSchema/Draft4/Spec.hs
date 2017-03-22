@@ -7,47 +7,71 @@ import           Data.Maybe                     (fromMaybe)
 import           Data.Profunctor                (Profunctor(..))
 
 import           JSONSchema.Draft4.Failure
-import           JSONSchema.Draft4.Schema       (Schema(..))
-import           JSONSchema.Fetch               (ReferencedSchemas(..),
-                                                 SchemaWithURI(..))
+import           JSONSchema.Draft4.Schema       (Schema(..),
+                                                 emptySchema)
+import           JSONSchema.Fetch               (SchemaWithURI(..),
+                                                 URISchemaMap(..))
 import qualified JSONSchema.Fetch               as FE
 import           JSONSchema.Types               (Spec(..))
 import qualified JSONSchema.Types               as JT
 import           JSONSchema.Validator.Draft4
-import           JSONSchema.Validator.Reference (updateResolutionScope)
+import           JSONSchema.Validator.Reference (BaseURI(..),
+                                                 Scope(..),
+                                                 updateResolutionScope)
 
+-- | An implementation of 'JT.embedded'.
 embedded :: Schema -> ([Schema], [Schema])
-embedded s = JT.embedded (d4Spec (ReferencedSchemas s mempty) mempty Nothing) s
+embedded s =
+    JT.embedded (d4Spec mempty mempty (Scope s Nothing (BaseURI Nothing))) s
 
 specValidate
-    :: ReferencedSchemas Schema
+    :: URISchemaMap Schema
     -> SchemaWithURI Schema
     -> Value
     -> [ValidatorFailure]
-specValidate rs =
-    continueValidating rs (VisitedSchemas [(Nothing, Nothing)])
-
-continueValidating
-    :: ReferencedSchemas Schema
-    -> VisitedSchemas
-    -> SchemaWithURI Schema
-    -> Value
-    -> [ValidatorFailure]
-continueValidating referenced visited sw =
-    JT.validate (d4Spec referenced visited currentScope)
-                (_swSchema sw)
+specValidate schemaMap sw =
+    JT.validate (d4Spec schemaMap visited scope) (_swSchema sw)
   where
-    currentScope :: Maybe Text
-    currentScope = updateResolutionScope
-                       (_swURI sw)
-                       (_schemaId (_swSchema sw))
+    visited :: VisitedSchemas
+    visited = VisitedSchemas [(Nothing, Nothing)]
+
+    scope :: Scope Schema
+    scope = Scope
+        { _topLevelDocument = _swSchema sw
+        , _documentURI      = _swURI sw
+        , _currentBaseURI   = updateResolutionScope (BaseURI (_swURI sw))
+                                                    (_schemaId (_swSchema sw))
+        }
+
+validateSubschema 
+    :: URISchemaMap Schema
+    -> VisitedSchemas
+    -> Scope Schema
+    -> Schema
+    -> Value
+    -> [ValidatorFailure]
+validateSubschema schemaMap visited scope schema =
+    JT.validate (d4Spec schemaMap visited newScope) schema
+  where
+    newScope :: Scope Schema
+    newScope = scope
+        { _currentBaseURI = updateResolutionScope (_currentBaseURI scope)
+                                                  (_schemaId schema)
+        }
 
 d4Spec
-    :: ReferencedSchemas Schema
+    :: URISchemaMap Schema
     -> VisitedSchemas
-    -> Maybe Text
+    -> Scope Schema
     -> Spec Schema ValidatorFailure
-d4Spec referenced visited scope = Spec
+d4Spec schemaMap visited scope = Spec $
+    [ dimap
+        (fmap Ref . _schemaRef)
+        FailureRef
+        (refValidator (FE.getReference schemaMap) updateScope valRef visited scope)
+    ]
+
+    <> fmap (lmap disableIfRefPresent)
     [ dimap (fmap MultipleOf . _schemaMultipleOf) FailureMultipleOf multipleOfValidator
     , dimap
         (\s -> Maximum (fromMaybe False (_schemaExclusiveMaximum s)) <$> _schemaMaximum s)
@@ -98,10 +122,6 @@ d4Spec referenced visited scope = Spec
         FailurePropertiesRelated
         (propertiesRelatedValidator descend)
 
-    , dimap
-        (\s -> Ref <$> _schemaRef s)
-        FailureRef
-        (refValidator visited scope (FE.getReference referenced) getRef)
     , dimap (fmap EnumValidator . _schemaEnum) FailureEnum enumValidator
     , dimap (fmap TypeContext . _schemaType) FailureType typeValidator
     , dimap (fmap AllOf . _schemaAllOf) FailureAllOf (allOfValidator lateral)
@@ -110,19 +130,25 @@ d4Spec referenced visited scope = Spec
     , dimap (fmap NotValidator . _schemaNot) FailureNot (notValidator lateral)
     ]
   where
-    getRef
+    disableIfRefPresent :: Schema -> Schema
+    disableIfRefPresent schema =
+        case _schemaRef schema of
+            Nothing -> schema
+            Just _  -> emptySchema
+
+    updateScope :: BaseURI -> Schema -> BaseURI
+    updateScope uri schema = updateResolutionScope uri (_schemaId schema)
+
+    valRef
         :: VisitedSchemas
-        -> Maybe Text
+        -> Scope Schema
         -> Schema
         -> Value
         -> [ValidatorFailure]
-    getRef newVisited newScope schema =
-        continueValidating referenced newVisited (SchemaWithURI schema newScope)
+    valRef vis sc = JT.validate (d4Spec schemaMap vis sc)
 
     descend :: Schema -> Value -> [ValidatorFailure]
-    descend schema =
-        continueValidating referenced mempty (SchemaWithURI schema scope)
+    descend = validateSubschema schemaMap mempty scope
 
     lateral :: Schema -> Value -> [ValidatorFailure]
-    lateral schema =
-        continueValidating referenced visited (SchemaWithURI schema scope)
+    lateral = validateSubschema schemaMap visited scope

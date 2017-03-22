@@ -11,8 +11,6 @@ import           Network.Wai.Handler.Warp       (run)
 import           Test.Hspec
 
 import qualified JSONSchema.Draft4              as D4
-import           JSONSchema.Fetch               (ReferencedSchemas(..),
-                                                     URISchemaMap(..))
 import qualified JSONSchema.Types               as JT
 import           Shared
 
@@ -48,8 +46,9 @@ main = withAsync serve $ \_ -> do
             Left e          -> panic ("Remote.validateExample error: " <> show e)
             Right schemaMap -> do
                 let failures = AlternateSchema.validate
-                                   (ReferencedSchemas s (_unURISchemaMap schemaMap))
-                                   Nothing s (_scData sc)
+                                   schemaMap
+                                   (D4.SchemaWithURI s Nothing)
+                                   (_scData sc)
                 assertResult sc failures
 
 serve :: IO ()

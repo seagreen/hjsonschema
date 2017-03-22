@@ -9,11 +9,14 @@ import qualified Data.Scientific                as SCI
 import           Data.Semigroup                 (Semigroup) -- for older GHCs
 import           Data.Set                       (Set)
 import qualified Data.Set                       as S
+import           Data.Text.Encoding.Error       (UnicodeException)
 import qualified JSONPointer                    as JP
+import           Network.HTTP.Types.URI         (urlDecode)
 
 import qualified JSONSchema.Validator.Utils     as UT
-import           JSONSchema.Validator.Reference (URIBaseAndFragment,
-                                                 resolveFragment,
+import           JSONSchema.Validator.Reference (BaseURI(..),
+                                                 Scope(..),
+                                                 URIAndFragment,
                                                  resolveReference)
 
 --------------------------------------------------
@@ -39,42 +42,131 @@ data RefInvalid err
       -- Also note that ideally we would enforce in the type system that any
       -- failing references be dealt with before valididation. Then this could
       -- be removed entirely.
-    | RefPointerResolution Text
-    | RefLoop              Text VisitedSchemas URIBaseAndFragment
+    | RefPointerResolution JSONPointerError
+    | RefLoop              Text VisitedSchemas URIAndFragment
     | RefInvalid           Text Value (NonEmpty err)
       -- ^ 'Text' is the URI and 'Value' is the linked schema.
     deriving (Eq, Show)
 
 newtype VisitedSchemas
-    = VisitedSchemas { _unVisited :: [URIBaseAndFragment] }
+    = VisitedSchemas { _unVisited :: [URIAndFragment] }
     deriving (Eq, Show, Semigroup, Monoid)
 
 refVal
     :: forall err schema. (FromJSON schema, ToJSON schema)
-    => VisitedSchemas
-    -> Maybe Text
-    -> (Maybe Text -> Maybe schema)
-    -> (VisitedSchemas -> Maybe Text -> schema -> Value -> [err])
+    => (Text -> Maybe schema)
+        -- ^ Look up a schema.
+    -> (BaseURI -> schema -> BaseURI)
+        -- ^ Update scope (needed after moving deeper into nested schemas).
+    -> (VisitedSchemas -> Scope schema -> schema -> Value -> [err])
+        -- ^ Validate data.
+    -> VisitedSchemas
+    -> Scope schema
     -> Ref
     -> Value
     -> Maybe (RefInvalid err)
-refVal visited scope getRef f (Ref reference) x
+refVal getRef updateScope val visited scope (Ref reference) x
     | (mURI, mFragment) `elem` _unVisited visited =
         Just (RefLoop reference visited (mURI, mFragment))
-    | otherwise =
-        case getRef mURI of
-            Nothing     -> Just (RefResolution reference)
-            Just schema ->
-                case resolveFragment mFragment schema of
-                    Nothing -> Just (RefPointerResolution reference)
-                    Just s  ->
-                        let newVisited = (VisitedSchemas [(mURI, mFragment)]
-                                      <> visited)
-                            errs = f newVisited mURI s x
-                        in RefInvalid reference (toJSON schema)
-                            <$> NE.nonEmpty errs
+    | otherwise = leftToMaybe $ do
+
+        -- Get the referenced document
+
+        (newScope, doc) <- first RefResolution
+                         $ getDocument getRef updateScope scope mURI reference
+
+        -- Get the correct subschema within that document.
+
+        res <- case mFragment of
+                   Nothing       -> Right (newScope, doc)
+                   Just fragment -> first RefPointerResolution
+                                  $ resolveFragment updateScope newScope fragment
+        let (finalScope, schema) = res
+
+        -- Check if that schema is valid.
+
+        let newVisited = VisitedSchemas [(_documentURI newScope, mFragment)]
+                      <> visited
+            failures = val newVisited finalScope schema x
+        first (RefInvalid reference (toJSON schema))
+            . maybeToLeft ()
+            $ NE.nonEmpty failures
   where
-    (mURI, mFragment) = resolveReference scope reference
+    mURI      :: Maybe Text
+    mFragment :: Maybe Text
+    (mURI, mFragment) = resolveReference (_currentBaseURI scope) reference
+
+getDocument
+    :: forall schema. (Text -> Maybe schema)
+    -> (BaseURI -> schema -> BaseURI)
+    -> Scope schema
+    -> Maybe Text
+    -> Text
+    -> Either Text (Scope schema, schema)
+    -- ^ 'Left' is the URI of the document we failed to resolve.
+getDocument getRef updateScope scope mURI reference =
+    case mURI <* fst (resolveReference (BaseURI Nothing) reference) of
+        Nothing  -> Right topOfThisDoc
+        Just uri ->
+            case getRef uri of
+                Nothing -> Left uri
+                Just s  -> Right ( Scope s mURI (updateScope (BaseURI mURI) s)
+                                 , s
+                                 )
+  where
+    topOfThisDoc :: (Scope schema, schema)
+    topOfThisDoc =
+        ( scope { _currentBaseURI =
+                    updateScope (BaseURI (_documentURI scope))
+                                 (_topLevelDocument scope)
+                }
+        , _topLevelDocument scope
+        )
+
+data JSONPointerError
+    = URLDecodingError       UnicodeException -- | Aspirationally internal.
+    | FormatError            JP.FormatError
+    | ResolutionError        JP.ResolutionError
+    | SubschemaDecodingError Text -- | Aspirationally internal.
+    deriving (Eq, Show)
+
+resolveFragment
+    :: forall schema. (FromJSON schema, ToJSON schema)
+    => (BaseURI -> schema -> BaseURI)
+    -> Scope schema
+    -> Text
+    -> Either JSONPointerError (Scope schema, schema)
+resolveFragment updateScope scope fragment = do
+    urlDecoded <- first URLDecodingError
+                . decodeUtf8'
+                . urlDecode True
+                . encodeUtf8
+                $ fragment
+    JP.Pointer tokens <- first FormatError (JP.unescape urlDecoded)
+    let acc = (toJSON (_topLevelDocument scope), _currentBaseURI scope)
+    (schemaVal, base) <- foldM go acc tokens
+    schema <- first SubschemaDecodingError (fromJSONEither schemaVal)
+    pure (scope { _currentBaseURI = base }, schema)
+  where
+    -- We have to step through the document JSON Pointer token
+    -- by JSON Pointer token so that we can update the scope
+    -- based on each @"id"@ we encounter.
+    --
+    -- TODO: Do we need specialized code to skip @"id"@s such
+    -- as property keys that aren't meant to change scope?
+    -- Perhaps this should be added to the language agnostic
+    -- test suite as well.
+    go :: (Value, BaseURI)
+       -> JP.Token
+       -> Either JSONPointerError (Value, BaseURI)
+    go (lastVal, uri) tok = do
+        v <- first ResolutionError (JP.resolveToken tok lastVal)
+        case v of
+            Array _ -> pure (v, uri)
+            _       -> do
+                -- PERFORMANCE: Avoid deserializing subschemas.
+                schema <- first SubschemaDecodingError (fromJSONEither v)
+                pure (v, updateScope uri schema)
 
 --------------------------------------------------
 -- * enum

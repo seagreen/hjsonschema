@@ -10,8 +10,6 @@ import           Test.Hspec
 import           Test.QuickCheck    (property)
 
 import qualified JSONSchema.Draft4  as D4
-import           JSONSchema.Fetch   (ReferencedSchemas(..),
-                                     URISchemaMap(..))
 import qualified JSONSchema.Types   as JT
 import qualified Local.Failure
 import qualified Local.Validation
@@ -84,8 +82,9 @@ main = do
             Left e          -> panic ("Local.validateExample error: " <> show e)
             Right schemaMap -> do
                 let failures = AlternateSchema.validate
-                                   (ReferencedSchemas s (_unURISchemaMap schemaMap))
-                                   Nothing s (_scData sc)
+                                   schemaMap
+                                   (D4.SchemaWithURI s Nothing)
+                                   (_scData sc)
                 assertResult sc failures
 
 quickCheckTests :: Spec

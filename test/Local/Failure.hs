@@ -31,7 +31,7 @@ itemsArray =
         ]
   where
     failures :: [ValidatorFailure]
-    failures = Spec.specValidate (ReferencedSchemas schema mempty) sw badData
+    failures = Spec.specValidate mempty sw badData
 
     schema :: Schema
     schema = emptySchema
@@ -61,7 +61,7 @@ itemsObject =
         ]
   where
     failures :: [ValidatorFailure]
-    failures = Spec.specValidate (ReferencedSchemas schema mempty) sw badData
+    failures = Spec.specValidate mempty sw badData
 
     schema :: Schema
     schema = emptySchema
@@ -89,7 +89,7 @@ loopRef =
         ]
   where
     failures :: [ValidatorFailure]
-    failures = Spec.specValidate (ReferencedSchemas schema mempty) sw badData
+    failures = Spec.specValidate mempty sw badData
 
     schema :: Schema
     schema = emptySchema

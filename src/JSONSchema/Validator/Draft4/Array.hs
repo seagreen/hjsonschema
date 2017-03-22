@@ -67,7 +67,7 @@ instance FromJSON UniqueItems where
     parseJSON = withObject "UniqueItems" $ \o ->
         UniqueItems <$> o .: "uniqueItems"
 
-data UniqueItemsInvalid
+newtype UniqueItemsInvalid
     = UniqueItemsInvalid (Vector Value)
     deriving (Eq, Show)
 

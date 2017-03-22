@@ -3,7 +3,6 @@ module JSONSchema.Fetch where
 
 import           Import
 
-import           Control.Arrow                  (left)
 import           Control.Exception              (IOException, catch)
 import           Control.Monad                  (foldM)
 import qualified Data.ByteString                as BS
@@ -12,7 +11,8 @@ import qualified Data.HashMap.Strict            as HM
 import qualified Data.Text                      as T
 import qualified Network.HTTP.Client            as NC
 
-import           JSONSchema.Validator.Reference (resolveReference,
+import           JSONSchema.Validator.Reference (BaseURI(..),
+                                                 resolveReference,
                                                  updateResolutionScope)
 
 --------------------------------------------------
@@ -27,49 +27,22 @@ data FetchInfo schema = FetchInfo
     , _fiRef      :: schema -> Maybe Text
     }
 
-data ReferencedSchemas schema = ReferencedSchemas
-    { _rsStarting  :: !schema
-      -- ^ Used to resolve relative references when we don't know what the scope
-      -- of the current schema is. This only happens with starting schemas
-      -- because if we're using a remote schema we had to know its URI in order
-      -- to fetch it.
-      --
-      -- Tracking the starting schema (instead of just resolving the reference to
-      -- the current schema being used for validation) is necessary for cases
-      -- where schemas are embedded inside one another. For instance in this
-      -- case not distinguishing the starting and "foo" schemas sends the code
-      -- into an infinite loop:
-      --
-      -- {
-      --   "additionalProperties": false,
-      --   "properties": {
-      --     "foo": {
-      --       "$ref": "#"
-      --     }
-      --   }
-      -- }
-    , _rsSchemaMap :: !(HashMap Text schema)
-      -- ^ Map of URIs to schemas.
-    } deriving (Eq, Show)
-
 -- | Keys are URIs (without URI fragments).
 newtype URISchemaMap schema
     = URISchemaMap { _unURISchemaMap :: HashMap Text schema }
-    deriving (Eq, Show)
+    deriving (Eq, Show, Monoid)
 
+-- | A top-level schema along with its location.
 data SchemaWithURI schema = SchemaWithURI
     { _swSchema :: !schema
     , _swURI    :: !(Maybe Text)
-      -- ^ This is the URI identifying the document containing the schema.
+      -- ^ This is the URI from which the document was originally fetched.
       -- It's different than the schema's "id" field, which controls scope
       -- when resolving references contained in the schema.
-
-      -- TODO: Make the no URI fragment requirement unnecessary.
     } deriving (Eq, Show)
 
-getReference :: ReferencedSchemas schema -> Maybe Text -> Maybe schema
-getReference referenced Nothing  = Just (_rsStarting referenced)
-getReference referenced (Just t) = HM.lookup t (_rsSchemaMap referenced)
+getReference :: URISchemaMap schema -> Text -> Maybe schema
+getReference schemaMap t = HM.lookup t (_unURISchemaMap schemaMap)
 
 --------------------------------------------------
 -- * Fetch via HTTP
@@ -90,7 +63,7 @@ referencesViaHTTP'
 referencesViaHTTP' info sw = do
     manager <- NC.newManager NC.defaultManagerSettings
     let f = referencesMethodAgnostic (getURL manager) info sw
-    catch (left HTTPParseFailure <$> f) handler
+    catch (first HTTPParseFailure <$> f) handler
   where
     getURL :: NC.Manager -> Text -> IO BS.ByteString
     getURL man url = do
@@ -116,7 +89,7 @@ referencesViaFilesystem'
     => FetchInfo schema
     -> SchemaWithURI schema
     -> IO (Either FilesystemFailure (URISchemaMap schema))
-referencesViaFilesystem' info sw = catch (left FSParseFailure <$> f) handler
+referencesViaFilesystem' info sw = catch (first FSParseFailure <$> f) handler
   where
     f :: IO (Either Text (URISchemaMap schema))
     f = referencesMethodAgnostic (BS.readFile . T.unpack) info sw
@@ -155,27 +128,33 @@ getRecursiveReferences fetchRef info referenced sw =
     f :: Either Text (URISchemaMap schema)
       -> SchemaWithURI schema
       -> IO (Either Text (URISchemaMap schema))
-    f (Left e) _                            = pure (Left e)
-    f (Right (URISchemaMap usm)) (SchemaWithURI schema mUri) =
+    f (Left e) _ = pure (Left e)
+    f (Right (URISchemaMap schemaMap)) (SchemaWithURI schema mURI) =
         case newRef of
-            Nothing  -> pure (Right (URISchemaMap usm))
+            Nothing  -> pure (Right (URISchemaMap schemaMap))
             Just uri -> do
                 bts <- fetchRef uri
                 case eitherDecodeStrict bts of
-                    Left e     -> pure . Left . T.pack $ e
-                    Right schm -> getRecursiveReferences
-                                      fetchRef
-                                      info
-                                      (URISchemaMap (HM.insert uri schm usm))
-                                      (SchemaWithURI schm (Just uri))
+                    Left e  -> pure . Left . T.pack $ e
+                    Right s -> getRecursiveReferences
+                                   fetchRef
+                                   info
+                                   (URISchemaMap (HM.insert uri s schemaMap))
+                                   (SchemaWithURI s (Just uri))
       where
         newRef :: Maybe Text
-        newRef
-          | Just (Just uri,_) <- resolveReference mUri <$> _fiRef info schema
-              = case HM.lookup uri usm of
-                    Nothing -> Just uri
-                    Just _  -> Nothing
-          | otherwise = Nothing
+        newRef = do
+            ref <- _fiRef info schema
+
+            -- Consider the reference before updating the scope.
+            -- If it's a only a fragment this isn't referencing
+            -- a new document.
+            void (fst (resolveReference (BaseURI Nothing) ref))
+
+            uri <- fst (resolveReference (BaseURI mURI) ref)
+            case HM.lookup uri schemaMap of
+                Nothing -> Just uri
+                Just _  -> Nothing
 
 -- | Return the schema passed in as an argument, as well as every
 -- subschema contained within it.
@@ -184,11 +163,12 @@ includeSubschemas
        FetchInfo schema
     -> SchemaWithURI schema
     -> [SchemaWithURI schema]
-includeSubschemas info (SchemaWithURI schema mUri) =
-    SchemaWithURI schema mUri
+includeSubschemas info (SchemaWithURI schema mURI) =
+    SchemaWithURI schema mURI
     : (includeSubschemas info =<< subSchemas)
   where
     subSchemas :: [SchemaWithURI schema]
     subSchemas =
-      (\a -> SchemaWithURI a (updateResolutionScope mUri (_fiId info schema)))
-         <$> uncurry (<>) (_fiEmbedded info schema)
+        let newScope = updateResolutionScope (BaseURI mURI) (_fiId info schema)
+            updateScope s = SchemaWithURI s (_unBaseURI newScope)
+        in updateScope <$> uncurry (<>) (_fiEmbedded info schema)

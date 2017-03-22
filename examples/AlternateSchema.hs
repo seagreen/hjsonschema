@@ -19,13 +19,15 @@ import           Data.Profunctor                (Profunctor (..))
 
 import           JSONSchema.Draft4              (ValidatorFailure(..),
                                                  metaSchemaBytes)
-import           JSONSchema.Fetch               (ReferencedSchemas(..),
-                                                 SchemaWithURI(..))
+import           JSONSchema.Fetch               (SchemaWithURI(..),
+                                                 URISchemaMap(..))
 import qualified JSONSchema.Fetch               as FE
 import           JSONSchema.Types               (Schema(..), Spec(..))
 import qualified JSONSchema.Types               as JT
 import qualified JSONSchema.Validator.Draft4    as D4
-import           JSONSchema.Validator.Reference (updateResolutionScope)
+import           JSONSchema.Validator.Reference (BaseURI(..),
+                                                 Scope(..),
+                                                 updateResolutionScope)
 
 --------------------------------------------------
 -- * Basic fetching tools
@@ -45,22 +47,38 @@ draft4FetchInfo = FE.FetchInfo embedded (lookup "id") (lookup "$ref")
             Just (String t) -> Just t
             _               -> Nothing
 
+-- | An implementation of 'JT.embedded'.
 embedded :: Schema -> ([Schema], [Schema])
-embedded s = JT.embedded (d4Spec (ReferencedSchemas s mempty) mempty Nothing) s
+embedded s =
+    JT.embedded (d4Spec mempty mempty (Scope s Nothing (BaseURI Nothing))) s
 
 --------------------------------------------------
 -- * Main API
 --------------------------------------------------
 
 validate
-    :: ReferencedSchemas Schema
-    -> Maybe Text
-    -> Schema
+    :: URISchemaMap Schema
+    -> SchemaWithURI Schema
     -> Value
     -> [ValidatorFailure]
-validate rs = continueValidating rs (D4.VisitedSchemas [(Nothing, Nothing)])
+validate schemaMap sw =
+    JT.validate (d4Spec schemaMap visited scope) (_swSchema sw)
+  where
+    visited :: D4.VisitedSchemas
+    visited = D4.VisitedSchemas [(Nothing, Nothing)]
 
--- A schema for schemas themselves, using @src/draft4.json@ which is loaded
+    schemaId :: Maybe Text
+    schemaId = FE._fiId draft4FetchInfo (_swSchema sw)
+
+    scope :: Scope Schema
+    scope = Scope
+        { _topLevelDocument = _swSchema sw
+        , _documentURI      = _swURI sw
+        , _currentBaseURI   =  updateResolutionScope (BaseURI (_swURI sw))
+                                                     schemaId
+        }
+
+-- | A schema for schemas themselves. Uses @src/draft4.json@ which is loaded
 -- at compile time.
 metaSchema :: Schema
 metaSchema =
@@ -69,47 +87,57 @@ metaSchema =
     $ metaSchemaBytes
 
 checkSchema :: Schema -> [ValidatorFailure]
-checkSchema = validate referenced Nothing metaSchema . Object . _unSchema
+checkSchema = validate schemaMap (SchemaWithURI metaSchema Nothing)
+            . Object
+            . _unSchema
   where
-    referenced :: ReferencedSchemas Schema
-    referenced = ReferencedSchemas
-                     metaSchema
-                     (HM.singleton "http://json-schema.org/draft-04/schema"
+    schemaMap :: URISchemaMap Schema
+    schemaMap =
+        URISchemaMap (HM.singleton "http://json-schema.org/draft-04/schema"
                                    metaSchema)
 
 --------------------------------------------------
 -- * Spec
 --------------------------------------------------
 
-continueValidating
-    :: ReferencedSchemas Schema
+validateSubschema
+    :: URISchemaMap Schema
     -> D4.VisitedSchemas
-    -> Maybe Text
+    -> Scope Schema
     -> Schema
     -> Value
     -> [ValidatorFailure]
-continueValidating referenced visited mURI sc =
-    JT.validate (d4Spec referenced visited newScope) sc
+validateSubschema schemaMap visited scope schema =
+    JT.validate (d4Spec schemaMap visited newScope) schema
   where
     schemaId :: Maybe Text
-    schemaId = case HM.lookup "id" (_unSchema sc) of
-                   Just (String t) -> Just t
-                   _               -> Nothing
+    schemaId = FE._fiId draft4FetchInfo schema
 
-    newScope :: Maybe Text
-    newScope = updateResolutionScope mURI schemaId
+    newScope :: Scope Schema
+    newScope = scope
+        { _currentBaseURI = updateResolutionScope (_currentBaseURI scope)
+                                                  schemaId
+        }
 
 d4Spec
-    :: ReferencedSchemas Schema
+    :: URISchemaMap Schema
     -> D4.VisitedSchemas
-    -> Maybe Text
+    -> Scope Schema
     -> Spec Schema ValidatorFailure
        -- ^ Here we reuses 'ValidatorFailure' from
        -- 'JSONSchema.Draft4.Failure'. If your validators have different
        -- failure possibilities you'll need to create your own validator
        -- failure type.
-d4Spec referenced visited scope =
-    Spec
+d4Spec schemaMap visited scope =
+    Spec $
+        [ dimap
+            f
+            FailureRef
+            (D4.refValidator (FE.getReference schemaMap) updateScope
+                             valRef visited scope)
+        ]
+
+        <> fmap (lmap disableIfRefPresent)
         [ dimap f FailureMultipleOf D4.multipleOfValidator
         , dimap f FailureMaximum D4.maximumValidator
         , dimap f FailureMinimum D4.minimumValidator
@@ -127,6 +155,7 @@ d4Spec referenced visited scope =
                          D4.IRInvalidItems e      -> FailureItems e
                          D4.IRInvalidAdditional e -> FailureAdditionalItems e)
             (D4.itemsRelatedValidator descend)
+        , lmap f D4.definitionsEmbedded
 
         , dimap f FailureMaxProperties D4.maxPropertiesValidator
         , dimap f FailureMinProperties D4.minPropertiesValidator
@@ -137,10 +166,6 @@ d4Spec referenced visited scope =
             FailurePropertiesRelated
             (D4.propertiesRelatedValidator descend)
 
-        , dimap
-            f
-            FailureRef
-            (D4.refValidator visited scope (FE.getReference referenced) getRef)
         , dimap f FailureEnum D4.enumValidator
         , dimap f FailureType D4.typeValidator
         , dimap f FailureAllOf (D4.allOfValidator lateral)
@@ -150,22 +175,31 @@ d4Spec referenced visited scope =
         ]
   where
     f :: FromJSON a => Schema -> Maybe a
-    f (Schema a) = case AE.fromJSON (Object a) of
-                       AE.Error _   -> Nothing
-                       AE.Success b -> Just b
+    f (Schema a) =
+        case AE.fromJSON (Object a) of
+            AE.Error _   -> Nothing
+            AE.Success b -> Just b
 
-    -- 'Maybe Text' is the URI the referenced schema is fetched from,
-    -- this probably needs a 'newtype' wrapper.
-    getRef
+    disableIfRefPresent :: Schema -> Schema
+    disableIfRefPresent schema =
+        case FE._fiRef draft4FetchInfo schema of
+            Nothing -> schema
+            Just _  -> Schema mempty
+
+    updateScope :: BaseURI -> Schema -> BaseURI
+    updateScope uri schema =
+        updateResolutionScope uri (FE._fiId draft4FetchInfo schema)
+
+    valRef
         :: D4.VisitedSchemas
-        -> Maybe Text
+        -> Scope Schema
         -> Schema
         -> Value
         -> [ValidatorFailure]
-    getRef = continueValidating referenced
+    valRef vis sc = JT.validate (d4Spec schemaMap vis sc)
 
     descend :: Schema -> Value -> [ValidatorFailure]
-    descend = continueValidating referenced mempty scope
+    descend = validateSubschema schemaMap mempty scope
 
     lateral :: Schema -> Value -> [ValidatorFailure]
-    lateral = continueValidating referenced visited scope
+    lateral = validateSubschema schemaMap visited scope

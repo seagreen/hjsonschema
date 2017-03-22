@@ -123,13 +123,3 @@ instance Ord OrdValue where
 
     (OrdValue (Object x)) `compare` (OrdValue (Object y)) =
         HM.toList (OrdValue <$> x) `compare` HM.toList (OrdValue <$> y)
-
---------------------------------------------------
--- * other
---------------------------------------------------
-
-fromJSONEither :: FromJSON a => Value -> Either Text a
-fromJSONEither a =
-    case fromJSON a of
-        Error e   -> Left (T.pack e)
-        Success b -> Right b

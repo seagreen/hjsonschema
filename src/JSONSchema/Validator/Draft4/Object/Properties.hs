@@ -12,6 +12,7 @@ import qualified Text.Regex.PCRE.Heavy as RE
 
 data PropertiesRelated schema = PropertiesRelated
     { _propProperties :: Maybe (HashMap Text schema)
+        -- ^ 'Maybe' is used to distinguish whether the key is present or not.
     , _propPattern    :: Maybe (HashMap Text schema)
     , _propAdditional :: Maybe (AdditionalProperties schema)
     } deriving (Eq, Show)

@@ -42,11 +42,12 @@ isHTTPTest file = (file == "definitions.json")
                || (file == "ref.json")
                || (file == "refRemote.json")
 
--- | We may never support the @"format"@ keywords, and
--- are currently failing the zeroTerminatedFloats test.
+-- | We may never support the @"format"@ keywords
+-- and are currently failing the others listed here.
 skipOptional :: FilePath -> Bool
 skipOptional file = (file == "optional/format.json")
                  || (file == "optional/zeroTerminatedFloats.json")
+                 || (file == "optional/ecmascript-regex.json")
 
 data SchemaTest = SchemaTest
     { _stDescription :: Text

@@ -145,7 +145,7 @@ data DependencyMemberInvalid err
     | PropertyDepInvalid (Set Text) (HashMap Text Value)
     deriving (Eq, Show)
 
-data DependenciesInvalid err
+newtype DependenciesInvalid err
     = DependenciesInvalid (HashMap Text (DependencyMemberInvalid err))
     deriving (Eq, Show)
 

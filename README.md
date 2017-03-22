@@ -52,9 +52,9 @@ Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP
 
 ## Vendoring
 
-+ `JSON-Schema-Test-Suite` is vendored from commit # aabcb3427745ade7a0b4d49ff016ad7eda8b898b [here](https://github.com/json-schema-org/JSON-Schema-Test-Suite).
++ `JSON-Schema-Test-Suite` is vendored from commit # c1b12bf699f29a04b4286711c6e3bbfba66f21e5 [here](https://github.com/json-schema-org/JSON-Schema-Test-Suite).
 
-+ `src/draft4.json` is from commit # f3d5aeb5ffbe9d9a5a0ceb761dc47c7c4c2efa68 [here](https://github.com/json-schema/json-schema).
++ `src/draft4.json` is from commit # aabcb3427745ade7a0b4d49ff016ad7eda8b898b [here](https://github.com/json-schema/json-schema).
 
 ## Credits
 
