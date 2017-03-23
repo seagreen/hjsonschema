@@ -40,7 +40,7 @@ Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP
 
 ## Good Parts
 
-+ Passes all the required tests in the [language agnostic test suite](https://github.com/json-schema/JSON-Schema-Test-Suite).
++ Passes all the required tests in the [language agnostic test suite](https://github.com/json-schema/JSON-Schema-Test-Suite). NOTE: due to an issue with the test suite this isn't true at the moment, see [#175](https://github.com/json-schema-org/JSON-Schema-Test-Suite/issues/175).
 
 + Very modular, which should make it easy to support future versions of the specification.
 
@@ -54,7 +54,7 @@ Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP
 
 + `JSON-Schema-Test-Suite` is vendored from commit # c1b12bf699f29a04b4286711c6e3bbfba66f21e5 [here](https://github.com/json-schema-org/JSON-Schema-Test-Suite).
 
-+ `src/draft4.json` is from commit # aabcb3427745ade7a0b4d49ff016ad7eda8b898b [here](https://github.com/json-schema/json-schema).
++ `src/draft4.json` is from commit # c1b12bf699f29a04b4286711c6e3bbfba66f21e5 [here](https://github.com/json-schema/json-schema). The [root ref in remote ref](./JSON-Schema-Test-Suite/tests/draft4/refRemote.json) test has been modified to fix [#175](https://github.com/json-schema-org/JSON-Schema-Test-Suite/issues/175).
 
 ## Credits
 
