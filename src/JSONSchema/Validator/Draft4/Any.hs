@@ -1,14 +1,16 @@
 
 module JSONSchema.Validator.Draft4.Any where
 
-import           Import
+import           Import                         hiding ((<>))
 
+import           Data.Aeson.TH                  (constructorTagModifier)
+import           Data.Char                      (toLower)
 import           Data.List.NonEmpty             (NonEmpty((:|)))
 import qualified Data.List.NonEmpty             as NE
 import qualified Data.Scientific                as SCI
-import           Data.Semigroup                 (Semigroup) -- for older GHCs
+import           Data.Semigroup
 import           Data.Set                       (Set)
-import qualified Data.Set                       as S
+import qualified Data.Set                       as Set
 import           Data.Text.Encoding.Error       (UnicodeException)
 import qualified JSONPointer                    as JP
 import           Network.HTTP.Types.URI         (urlDecode)
@@ -201,7 +203,10 @@ instance Arbitrary EnumValidator where
             Just ne -> pure (EnumValidator ne)
       where
         toUnique :: [Value] -> [Value]
-        toUnique = fmap UT._unOrdValue . S.toList . S.fromList . fmap UT.OrdValue
+        toUnique = fmap UT._unOrdValue
+                 . Set.toList
+                 . Set.fromList
+                 . fmap UT.OrdValue
 
 data EnumInvalid
     = EnumInvalid EnumValidator Value
@@ -229,9 +234,24 @@ instance FromJSON TypeContext where
         TypeContext <$> o .: "type"
 
 data TypeValidator
-    = TypeValidatorString Text
-    | TypeValidatorArray  (Set Text)
+    = TypeValidatorString SchemaType
+    | TypeValidatorArray  (Set SchemaType)
     deriving (Eq, Show)
+
+instance Semigroup TypeValidator where
+    (<>) x y
+        | isEmpty x = x
+        | isEmpty y = y
+        | x == y    = x
+        | otherwise = TypeValidatorArray (setFromTypeValidator x
+                                          `Set.union`
+                                          setFromTypeValidator y)
+      where
+        isEmpty :: TypeValidator -> Bool
+        isEmpty (TypeValidatorString _) = False
+        isEmpty (TypeValidatorArray ts) = Set.null ts
+
+    stimes = stimesIdempotent
 
 instance FromJSON TypeValidator where
     parseJSON v = fmap TypeValidatorString (parseJSON v)
@@ -242,9 +262,32 @@ instance ToJSON TypeValidator where
     toJSON (TypeValidatorArray ts) = toJSON ts
 
 instance Arbitrary TypeValidator where
-    arbitrary = oneof [ TypeValidatorString <$> UT.arbitraryText
-                      , TypeValidatorArray <$> UT.arbitrarySetOfText
+    arbitrary = oneof [ TypeValidatorString <$> arbitrary
+                      , TypeValidatorArray <$> arbitrary
                       ]
+
+data SchemaType
+    = SchemaObject
+    | SchemaArray
+    | SchemaString
+    | SchemaNumber
+    | SchemaInteger
+    | SchemaBoolean
+    | SchemaNull
+    deriving (Eq, Ord, Show, Bounded, Enum, Generic)
+
+instance FromJSON SchemaType where
+    parseJSON = genericParseJSON
+                    defaultOptions
+                    { constructorTagModifier = fmap toLower . drop 6 }
+
+instance ToJSON SchemaType where
+    toJSON = genericToJSON
+                 defaultOptions
+                 { constructorTagModifier = fmap toLower . drop 6 }
+
+instance Arbitrary SchemaType where
+    arbitrary = arbitraryBoundedEnum
 
 data TypeValidatorInvalid
     = TypeValidatorInvalid TypeValidator Value
@@ -252,30 +295,30 @@ data TypeValidatorInvalid
 
 typeVal :: TypeContext -> Value -> Maybe TypeValidatorInvalid
 typeVal (TypeContext tv) x
-    | S.null matches = Just (TypeValidatorInvalid tv x)
-    | otherwise      = Nothing
+    | Set.null matches = Just (TypeValidatorInvalid tv x)
+    | otherwise        = Nothing
   where
     -- There can be more than one match because a 'Value' can be both a
     -- @"number"@ and an @"integer"@.
-    matches :: Set Text
-    matches = S.intersection okTypes (setFromTypeValidator tv)
+    matches :: Set SchemaType
+    matches = Set.intersection okTypes (setFromTypeValidator tv)
 
-    okTypes :: Set Text
+    okTypes :: Set SchemaType
     okTypes =
         case x of
-            Null       -> S.singleton "null"
-            (Array _)  -> S.singleton "array"
-            (Bool _)   -> S.singleton "boolean"
-            (Object _) -> S.singleton "object"
-            (String _) -> S.singleton "string"
+            Null       -> Set.singleton SchemaNull
+            (Array _)  -> Set.singleton SchemaArray
+            (Bool _)   -> Set.singleton SchemaBoolean
+            (Object _) -> Set.singleton SchemaObject
+            (String _) -> Set.singleton SchemaString
             (Number y) ->
                 if SCI.isInteger y
-                    then S.fromList ["number", "integer"]
-                    else S.singleton "number"
+                    then Set.fromList [SchemaNumber, SchemaInteger]
+                    else Set.singleton SchemaNumber
 
 -- | Internal.
-setFromTypeValidator :: TypeValidator -> Set Text
-setFromTypeValidator (TypeValidatorString t) = S.singleton t
+setFromTypeValidator :: TypeValidator -> Set SchemaType
+setFromTypeValidator (TypeValidatorString t) = Set.singleton t
 setFromTypeValidator (TypeValidatorArray ts) = ts
 
 --------------------------------------------------
