@@ -1,3 +1,17 @@
+# 1.6.0
+
++ Fix defect where validators alongside "$ref" weren't ignored.
+
++ Fix defect where local references would fail if an "id" key had set resolution scope to start from a different document.
+
++ Vendor latest tests.
+
++ Remove `ReferencedSchemas`.
+
++ Create `Scope` to hold information that changes during validation.
+
++ Use a sum type for "type" values. Thanks to Philip Weaver (GitHub @pheaver).
+
 # 1.5.0.1
 
 + Raise test dep upper bounds.
