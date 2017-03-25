@@ -126,10 +126,12 @@ getDocument getRef updateScope scope mURI reference =
         )
 
 data JSONPointerError
-    = URLDecodingError       UnicodeException -- | Aspirationally internal.
+    = URLDecodingError       UnicodeException
+        -- ^ Aspirationally internal.
     | FormatError            JP.FormatError
     | ResolutionError        JP.ResolutionError
-    | SubschemaDecodingError Text -- | Aspirationally internal.
+    | SubschemaDecodingError Text
+        -- ^ Aspirationally internal.
     deriving (Eq, Show)
 
 resolveFragment

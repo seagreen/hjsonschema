@@ -1,5 +1,9 @@
 # 1.6.0
 
++ Fix Haddocks.
+
+# 1.6.0
+
 + Fix defect where validators alongside "$ref" weren't ignored.
 
 + Fix defect where local references would fail if an "id" key had set resolution scope to start from a different document.
