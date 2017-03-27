@@ -130,8 +130,7 @@ data JSONPointerError
         -- ^ Aspirationally internal.
     | FormatError            JP.FormatError
     | ResolutionError        JP.ResolutionError
-    | SubschemaDecodingError Text
-        -- ^ Aspirationally internal.
+    | SubschemaDecodingError Text -- | Aspirationally internal.
     deriving (Eq, Show)
 
 resolveFragment
