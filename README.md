@@ -56,6 +56,8 @@ Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP
 
 + `src/draft4.json` is from commit # c1b12bf699f29a04b4286711c6e3bbfba66f21e5 [here](https://github.com/json-schema/json-schema). The [root ref in remote ref](./JSON-Schema-Test-Suite/tests/draft4/refRemote.json) test has been modified to fix [#175](https://github.com/json-schema-org/JSON-Schema-Test-Suite/issues/175).
 
++ `.travis.yml` was created with `make_travis_yml_2.hs` commit # ea6c7d177a97bfbfb2fdc4deba943d60d2aff199.
+
 ## Credits
 
 [TJ Weigel](http://tjweigel.com/) created the logo.
