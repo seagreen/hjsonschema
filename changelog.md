@@ -1,3 +1,7 @@
+# 1.6.2
+
++ Bump aeson.
+
 # 1.6.1
 
 + Fix Haddocks.

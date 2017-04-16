@@ -1,5 +1,5 @@
 name:               hjsonschema
-version:            1.6.1
+version:            1.6.2
 synopsis:           JSON Schema library
 homepage:           https://github.com/seagreen/hjsonschema
 license:            MIT
@@ -60,7 +60,7 @@ library
   build-depends:
       base                 >= 4.7    && < 4.10
     -- 0.11 is for `.:!`:
-    , aeson                >= 0.11   && < 1.2
+    , aeson                >= 0.11   && < 1.3
     , bytestring           >= 0.10   && < 0.11
     , containers           >= 0.5    && < 0.6
     , file-embed           >= 0.0.8  && < 0.1
