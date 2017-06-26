@@ -1,0 +1,10 @@
+resolver: lts-8.20
+# packages:
+#   - location: '../hjsonpointer'
+#     extra-dep: true
+extra-deps:
+  - hjsonpointer-1.2.0
+  - QuickCheck-2.10.0.1
+nix:
+  enable: true
+  shell-file: shell.nix

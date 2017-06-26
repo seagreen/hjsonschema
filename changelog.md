@@ -1,3 +1,7 @@
+# 1.6.3
+
++ Bump hjsonpointer and QuickCheck.
+
 # 1.6.2
 
 + Bump aeson.
