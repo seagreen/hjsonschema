@@ -83,16 +83,11 @@ instance Arbitrary a => Arbitrary (NonEmpty' a) where
 -- * allUniqueValues
 --------------------------------------------------
 
-allUniqueValues :: Vector Value -> Bool
-allUniqueValues = allUnique . fmap OrdValue . V.toList
+allUniqueValues :: (Foldable f, Functor f) => f Value -> Bool
+allUniqueValues = allUnique . fmap OrdValue
 
--- NOTE: When we no longer support GHC 7.8 we can generalize
--- allUnique to work on any Foldable and remove this function.
-allUniqueValues' :: NonEmpty Value -> Bool
-allUniqueValues' = allUnique . fmap OrdValue . NE.toList
-
-allUnique :: (Ord a) => [a] -> Bool
-allUnique xs = S.size (S.fromList xs) == length xs
+allUnique :: (Foldable f, Ord a) => f a -> Bool
+allUnique xs = S.size (S.fromList (toList xs)) == length xs
 
 -- | OrdValue's Ord instance needs benchmarking, but it allows us to
 -- use our 'allUnique' function instead of O(n^2) nub, so it's probably

@@ -1,3 +1,8 @@
+# 1.7.0
+
++ Test with GHC 8.2. Drop GHC 7.8.
++ Rework `allUniqueValues` related utility functions.
+
 # 1.6.3
 
 + Bump hjsonpointer and QuickCheck.

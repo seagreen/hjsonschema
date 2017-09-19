@@ -1,15 +1,14 @@
+{ghc}:
 with (import <nixpkgs> {});
 
 haskell.lib.buildStackProject {
   name = "none";
   inherit ghc;
   buildInputs = [
-    pkgconfig
-    zlib
-
     pcre
 
-    # for `git:` references in stack.yml:
-    git
+    git # for `git:` references in stack.yml.
+    pkgconfig
+    zlib
   ];
 }

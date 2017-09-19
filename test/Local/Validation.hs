@@ -1,7 +1,7 @@
 
 module Local.Validation where
 
-import           Protolude           hiding (msg)
+import           Protolude
 
 import           Data.Aeson
 import qualified Data.Aeson          as AE

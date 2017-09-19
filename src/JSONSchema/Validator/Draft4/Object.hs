@@ -96,9 +96,6 @@ data RequiredInvalid
 
 requiredVal :: Required -> HashMap Text Value -> Maybe RequiredInvalid
 requiredVal r@(Required ts) x
-    -- NOTE: When we no longer need to support GHCs before 7.10
-    -- we can use null from Prelude throughout the library
-    -- instead of specialized versions.
     | Set.null ts        = Nothing
     | Set.null leftovers = Nothing
     | otherwise          = Just (RequiredInvalid r leftovers x)

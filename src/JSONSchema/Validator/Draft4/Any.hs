@@ -216,9 +216,9 @@ data EnumInvalid
 
 enumVal :: EnumValidator -> Value -> Maybe EnumInvalid
 enumVal a@(EnumValidator vs) x
-    | not (UT.allUniqueValues' vs) = Nothing
-    | x `elem` vs                  = Nothing
-    | otherwise                    = Just $ EnumInvalid a x
+    | not (UT.allUniqueValues vs) = Nothing
+    | x `elem` vs                 = Nothing
+    | otherwise                   = Just $ EnumInvalid a x
 
 --------------------------------------------------
 -- * type
@@ -377,8 +377,7 @@ anyOfVal
     -> Value
     -> Maybe (AnyOfInvalid err)
 anyOfVal f (AnyOf subSchemas) x
-    -- Replace with @null@ once we drop GHC 7.8:
-    | any (((==) 0 . length) . snd) perhapsFailures = Nothing
+    | any (null . snd) perhapsFailures = Nothing
     | otherwise = AnyOfInvalid <$> NE.nonEmpty failures
   where
     perhapsFailures :: [(JP.Index, [err])]
