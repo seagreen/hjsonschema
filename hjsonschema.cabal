@@ -1,5 +1,5 @@
 name:               hjsonschema
-version:            1.7.0
+version:            1.7.1
 synopsis:           JSON Schema library
 homepage:           https://github.com/seagreen/hjsonschema
 license:            MIT
@@ -70,7 +70,7 @@ library
     , hjsonpointer         >= 1.1    && < 1.4
     -- 0.4.30 is for parseUrlThrow:
     , http-client          >= 0.4.30 && < 0.6
-    , http-types           >= 0.8    && < 0.10
+    , http-types           >= 0.8    && < 0.11
     , pcre-heavy           >= 1.0    && < 1.1
     , profunctors          >= 5.0    && < 5.3
     , protolude            >= 0.1.10 && < 1.2

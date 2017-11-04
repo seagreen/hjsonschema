@@ -1,3 +1,7 @@
+# 1.7.1
+
++ Bump http-types.
+
 # 1.7.0
 
 + Test with GHC 8.2. Drop GHC 7.8.
