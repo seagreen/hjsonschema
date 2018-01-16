@@ -8,6 +8,7 @@ haskell.lib.buildStackProject {
     pcre
 
     git # for `git:` references in stack.yml.
+    ncurses # for intero
     pkgconfig
     zlib
   ];
