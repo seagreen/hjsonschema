@@ -33,12 +33,10 @@ main = do
     -- Language agnostic tests
     ts <- readSchemaTests
               dir
-              (\a -> not (isHTTPTest a || skipOptional a))
+              (\a -> not (isHTTPTest a || skipTest a))
 
     -- Custom supplements to the language agnostic tests
-    supplementTs <- readSchemaTests
-                        supplementDir
-                        (\a -> not (isHTTPTest a || skipOptional a))
+    supplementTs <- readSchemaTests supplementDir (not . isHTTPTest)
 
     hspec $ do
         describe "Examples" exampleTests

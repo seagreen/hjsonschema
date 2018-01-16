@@ -1,6 +1,6 @@
 ![hjsonschema logo](./logo.jpg)
 
-A Haskell implementation of the most commonly used [JSON Schema](http://json-schema.org/) specification ([Draft 4](https://github.com/json-schema-org/json-schema-spec/wiki/Specification-Links#draft-4)).
+A Haskell implementation of [JSON Schema](http://json-schema.org/) ([Draft 4](https://github.com/json-schema-org/json-schema-spec/wiki/Specification-Links#draft-4)).
 
 [Hackage](https://hackage.haskell.org/package/hjsonschema) / [GitHub](https://github.com/seagreen/hjsonschema) / [Travis CI](https://travis-ci.org/seagreen/hjsonschema)
 
@@ -38,13 +38,9 @@ Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP
 
 + Be a useful reference for implementers in other languages. Haskell's high level nature, expressive type system and referential transparency suit this purpose well.
 
-## Good Parts
+## Issues
 
-+ Passes all the required tests in the [language agnostic test suite](https://github.com/json-schema/JSON-Schema-Test-Suite). NOTE: due to an issue with the test suite this isn't true at the moment, see [#175](https://github.com/json-schema-org/JSON-Schema-Test-Suite/issues/175).
-
-+ Very modular, which should make it easy to support future versions of the specification.
-
-## Bad Parts
++ Doesn't pass all of the tests in the [language agnostic test suite](https://github.com/json-schema/JSON-Schema-Test-Suite). See the issue list for details.
 
 + Uses the [pcre-heavy](https://hackage.haskell.org/package/pcre-heavy) regular expression library for the "pattern" validator. It should use a library based on the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
 

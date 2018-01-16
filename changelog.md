@@ -1,3 +1,7 @@
+# 1.7.2
+
++ Remove upper bounds.
+
 # 1.7.1
 
 + Bump http-types.

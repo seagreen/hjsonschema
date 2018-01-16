@@ -14,6 +14,17 @@ import qualified System.Directory as SD
 import           System.FilePath  ((</>))
 import           Test.Hspec
 
+skipTest :: FilePath -> Bool
+skipTest file = (file == "optional/format.json") -- Optional
+             || (file == "optional/zeroTerminatedFloats.json")
+             || (file == "optional/ecmascript-regex.json")
+
+
+isHTTPTest :: FilePath -> Bool
+isHTTPTest file = (file == "definitions.json")
+               || (file == "ref.json")
+               || (file == "refRemote.json")
+
 -- Recursively return the contents of a directory
 -- (or return itself if given a file as an argument).
 --
@@ -36,18 +47,6 @@ listFilesFullPath path = do
         else do
             fs <- fmap (path </>) <$> SD.listDirectory path
             concat <$> traverse listFilesFullPath fs
-
-isHTTPTest :: FilePath -> Bool
-isHTTPTest file = (file == "definitions.json")
-               || (file == "ref.json")
-               || (file == "refRemote.json")
-
--- | We may never support the @"format"@ keywords
--- and are currently failing the others listed here.
-skipOptional :: FilePath -> Bool
-skipOptional file = (file == "optional/format.json")
-                 || (file == "optional/zeroTerminatedFloats.json")
-                 || (file == "optional/ecmascript-regex.json")
 
 data SchemaTest = SchemaTest
     { _stDescription :: Text
