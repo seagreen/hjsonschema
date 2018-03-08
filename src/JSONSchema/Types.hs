@@ -1,4 +1,3 @@
-
 module JSONSchema.Types where
 
 import           Import

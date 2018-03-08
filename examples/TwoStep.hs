@@ -10,15 +10,14 @@
 -- 'fetchHTTPAndValidate' which fetched references over HTTP (though it
 -- didn't matter because the last schema didn't actually have any).
 -- This time we need to get them from the filesystem.
-
 module TwoStep where
 
 import           Protolude
 
-import           Data.Aeson                  (Value (..), toJSON)
-import qualified Data.List.NonEmpty          as NE
+import           Data.Aeson (Value(..), toJSON)
+import qualified Data.List.NonEmpty as NE
 
-import qualified JSONSchema.Draft4           as D4
+import qualified JSONSchema.Draft4 as D4
 import qualified JSONSchema.Validator.Draft4 as VAL
 
 schema :: D4.Schema

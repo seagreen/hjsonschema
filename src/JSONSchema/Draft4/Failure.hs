@@ -1,9 +1,8 @@
-
 module JSONSchema.Draft4.Failure where
 
 import           Import
 
-import           JSONSchema.Draft4.Schema    (Schema)
+import           JSONSchema.Draft4.Schema (Schema)
 import qualified JSONSchema.Validator.Draft4 as VAL
 
 -- | Used to report an entire instance being invalidated, as opposed

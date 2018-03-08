@@ -1,4 +1,3 @@
-
 module Local.Reference where
 
 import           Protolude

@@ -1,11 +1,10 @@
-
 module JSONSchema.Validator.Draft4.Array where
 
 import           Import
 
-import qualified Data.List.NonEmpty         as NE
-import qualified Data.Vector                as V
-import qualified JSONPointer                as JP
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Vector as V
+import qualified JSONPointer as JP
 
 import           JSONSchema.Validator.Utils (allUniqueValues)
 
@@ -174,7 +173,8 @@ itemsVal f a xs =
         :: schema
         -> (JP.Index, Value)
         -> Maybe (JP.Index, NonEmpty err)
-    validateElem schema (index,x) = (index,) <$> NE.nonEmpty (f schema x)
+    validateElem schema (index,x) =
+        (\v -> (index, v)) <$> NE.nonEmpty (f schema x)
 
 --------------------------------------------------
 -- * additionalItems
@@ -219,6 +219,7 @@ additionalItemsVal _ (AdditionalBool False) xs =
     AdditionalItemsBoolInvalid <$> NE.nonEmpty xs
 additionalItemsVal f (AdditionalObject subSchema) xs =
     let res = mapMaybe
-                  (\(index,x) -> (index,) <$> NE.nonEmpty (f subSchema x))
+                  (\(index,x) -> (\v -> (index, v))
+                             <$> NE.nonEmpty (f subSchema x))
                   xs
     in AdditionalItemsObjectInvalid <$> NE.nonEmpty res

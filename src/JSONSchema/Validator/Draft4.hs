@@ -2,7 +2,6 @@
 --
 -- This is frankly a lot of busywork. It can perhaps be moved into the
 -- validator modules themselves once we're sure this is the right design.
-
 module JSONSchema.Validator.Draft4
     ( module JSONSchema.Validator.Draft4
     , module Export
@@ -10,16 +9,16 @@ module JSONSchema.Validator.Draft4
 
 import           Import
 
-import qualified Data.HashMap.Strict                as HM
-import qualified Data.List.NonEmpty                 as NE
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
 
-import           JSONSchema.Validator.Draft4.Any    as Export
-import           JSONSchema.Validator.Draft4.Array  as Export
+import           JSONSchema.Validator.Draft4.Any as Export
+import           JSONSchema.Validator.Draft4.Array as Export
 import           JSONSchema.Validator.Draft4.Number as Export
 import           JSONSchema.Validator.Draft4.Object as Export
 import           JSONSchema.Validator.Draft4.String as Export
-import           JSONSchema.Validator.Reference     (BaseURI(..), Scope(..))
-import           JSONSchema.Validator.Types         (Validator(..))
+import           JSONSchema.Validator.Reference (BaseURI(..), Scope(..))
+import           JSONSchema.Validator.Types (Validator(..))
 
 -- | For internal use.
 --
@@ -148,7 +147,7 @@ propertiesRelatedValidator f =
                <> HM.elems (fromMaybe mempty (_propPattern a))
                <> case _propAdditional a of
                       Just (AdditionalPropertiesObject b) -> [b]
-                      _ -> mempty
+                      _                                   -> mempty
                ))
         (\a b -> case fromJSONEither b of
                      Left _  -> mempty

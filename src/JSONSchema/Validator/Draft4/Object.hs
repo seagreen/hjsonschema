@@ -1,4 +1,3 @@
-
 module JSONSchema.Validator.Draft4.Object
   ( module JSONSchema.Validator.Draft4.Object
   , module JSONSchema.Validator.Draft4.Object.Properties
@@ -6,11 +5,11 @@ module JSONSchema.Validator.Draft4.Object
 
 import           Import
 
-import qualified Data.HashMap.Strict                           as HM
-import qualified Data.List.NonEmpty                            as NE
-import           Data.Set                                      (Set)
-import qualified Data.Set                                      as Set
-import qualified Data.Text                                     as T
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
+import           Data.Set (Set)
+import qualified Data.Set as Set
+import qualified Data.Text as T
 
 import           JSONSchema.Validator.Draft4.Object.Properties
 import           JSONSchema.Validator.Utils

@@ -1,17 +1,16 @@
-
 module Main where
 
 import           Protolude
 
-import           Control.Concurrent.Async       (withAsync)
-import qualified Data.List.NonEmpty             as NE
+import           Control.Concurrent.Async (withAsync)
+import qualified Data.List.NonEmpty as NE
 import           Network.Wai.Application.Static (defaultFileServerSettings,
                                                  staticApp)
-import           Network.Wai.Handler.Warp       (run)
+import qualified Network.Wai.Handler.Warp as Warp
 import           Test.Hspec
 
-import qualified JSONSchema.Draft4              as D4
-import qualified JSONSchema.Types               as JT
+import qualified JSONSchema.Draft4 as D4
+import qualified JSONSchema.Types as JT
 import           Shared
 
 -- Examples
@@ -52,7 +51,7 @@ main = withAsync serve $ \_ -> do
                 assertResult sc failures
 
 serve :: IO ()
-serve = run 1234
+serve = Warp.run 1234
       . staticApp
       . defaultFileServerSettings
       $ "JSON-Schema-Test-Suite/remotes"

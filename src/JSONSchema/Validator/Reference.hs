@@ -3,15 +3,14 @@
 --
 -- And is extended for JSON Schema here:
 -- <http://json-schema.org/latest/json-schema-core.html#anchor26>
-
 module JSONSchema.Validator.Reference where
 
 import           Import
 
-import qualified Data.Text       as T
-import           System.FilePath ((</>), dropFileName)
+import qualified Data.Text as T
+import           System.FilePath (dropFileName, (</>))
 
-data Scope schema = Scope 
+data Scope schema = Scope
     { _topLevelDocument :: schema
     , _documentURI      :: Maybe Text
     , _currentBaseURI   :: BaseURI

@@ -1,10 +1,9 @@
-
 module JSONSchema.Validator.Draft4.String where
 
 import           Import
 
-import qualified Data.Text             as T
-import           Data.Text.Encoding    (encodeUtf8)
+import qualified Data.Text as T
+import           Data.Text.Encoding (encodeUtf8)
 import qualified Text.Regex.PCRE.Heavy as RE
 
 --------------------------------------------------

@@ -1,9 +1,8 @@
-
 module JSONSchema.Validator.Draft4.Number where
 
 import           Import
 
-import           Data.Fixed      (mod')
+import           Data.Fixed (mod')
 import           Data.Scientific (Scientific)
 
 --------------------------------------------------

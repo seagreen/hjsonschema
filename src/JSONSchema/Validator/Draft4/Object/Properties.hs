@@ -1,13 +1,12 @@
-
 module JSONSchema.Validator.Draft4.Object.Properties where
 
 import           Import
 
-import qualified Data.Hashable         as HA
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.List.NonEmpty    as NE
-import           Data.Text.Encoding    (encodeUtf8)
-import qualified JSONPointer           as JP
+import qualified Data.Hashable as HA
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
+import           Data.Text.Encoding (encodeUtf8)
+import qualified JSONPointer as JP
 import qualified Text.Regex.PCRE.Heavy as RE
 
 data PropertiesRelated schema = PropertiesRelated

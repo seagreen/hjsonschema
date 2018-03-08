@@ -1,16 +1,15 @@
-
 module JSONSchema.Validator.Utils where
 
 import           Import
 
-import           Control.Monad       (fail)
+import           Control.Monad (fail)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.List.NonEmpty  as NE
-import           Data.Scientific     (Scientific, fromFloatDigits)
-import           Data.Set            (Set)
-import qualified Data.Set            as S
-import qualified Data.Text           as T
-import qualified Data.Vector         as V
+import qualified Data.List.NonEmpty as NE
+import           Data.Scientific (Scientific, fromFloatDigits)
+import           Data.Set (Set)
+import qualified Data.Set as S
+import qualified Data.Text as T
+import qualified Data.Vector as V
 
 --------------------------------------------------
 -- * QuickCheck

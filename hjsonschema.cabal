@@ -34,7 +34,6 @@ library
     NoImplicitPrelude
     OverloadedStrings
     ScopedTypeVariables
-    TupleSections
   if impl(ghc >= 8)
     default-extensions: StrictData
   ghc-options:

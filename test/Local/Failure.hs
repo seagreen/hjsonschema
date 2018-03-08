@@ -1,15 +1,14 @@
-
 module Local.Failure where
 
 import           Protolude
 
 import           Data.Aeson
+import qualified Data.Vector as V
+import qualified JSONPointer as JP
 import           Test.Hspec
-import qualified Data.Vector                 as V
-import qualified JSONPointer                 as JP
 
 import           JSONSchema.Draft4
-import qualified JSONSchema.Draft4.Spec      as Spec
+import qualified JSONSchema.Draft4.Spec as Spec
 import qualified JSONSchema.Validator.Draft4 as VAL
 
 spec :: Spec

@@ -1,25 +1,23 @@
-
 module JSONSchema.Validator.Draft4.Any where
 
-import           Import                         hiding ((<>))
+import           Import hiding ((<>))
 
-import           Data.Aeson.TH                  (constructorTagModifier)
-import           Data.Char                      (toLower)
-import           Data.List.NonEmpty             (NonEmpty((:|)))
-import qualified Data.List.NonEmpty             as NE
-import qualified Data.Scientific                as SCI
+import           Data.Aeson.TH (constructorTagModifier)
+import           Data.Char (toLower)
+import           Data.List.NonEmpty (NonEmpty((:|)))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Scientific as SCI
 import           Data.Semigroup
-import           Data.Set                       (Set)
-import qualified Data.Set                       as Set
-import           Data.Text.Encoding.Error       (UnicodeException)
-import qualified JSONPointer                    as JP
-import           Network.HTTP.Types.URI         (urlDecode)
+import           Data.Set (Set)
+import qualified Data.Set as Set
+import           Data.Text.Encoding.Error (UnicodeException)
+import qualified JSONPointer as JP
+import           Network.HTTP.Types.URI (urlDecode)
 
-import qualified JSONSchema.Validator.Utils     as UT
-import           JSONSchema.Validator.Reference (BaseURI(..),
-                                                 Scope(..),
+import           JSONSchema.Validator.Reference (BaseURI(..), Scope(..),
                                                  URIAndFragment,
                                                  resolveReference)
+import qualified JSONSchema.Validator.Utils as UT
 
 --------------------------------------------------
 -- * $ref

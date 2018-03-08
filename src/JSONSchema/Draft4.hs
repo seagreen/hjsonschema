@@ -37,22 +37,19 @@ module JSONSchema.Draft4
 
 import           Import
 
-import qualified Data.ByteString           as BS
-import           Data.FileEmbed            (embedFile,
-                                            makeRelativeToProject)
-import qualified Data.HashMap.Strict       as HM
-import qualified Data.List.NonEmpty        as NE
-import           Data.Maybe                (fromMaybe)
+import qualified Data.ByteString as BS
+import           Data.FileEmbed (embedFile, makeRelativeToProject)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
+import           Data.Maybe (fromMaybe)
 
-import           JSONSchema.Draft4.Failure (Invalid(..),
-                                            SchemaInvalid(..),
+import           JSONSchema.Draft4.Failure (Invalid(..), SchemaInvalid(..),
                                             ValidatorFailure(..))
-import           JSONSchema.Draft4.Schema  (Schema)
-import qualified JSONSchema.Draft4.Schema  as SC
-import qualified JSONSchema.Draft4.Spec    as Spec
-import           JSONSchema.Fetch          (SchemaWithURI(..),
-                                            URISchemaMap(..))
-import qualified JSONSchema.Fetch          as FE
+import           JSONSchema.Draft4.Schema (Schema)
+import qualified JSONSchema.Draft4.Schema as SC
+import qualified JSONSchema.Draft4.Spec as Spec
+import           JSONSchema.Fetch (SchemaWithURI(..), URISchemaMap(..))
+import qualified JSONSchema.Fetch as FE
 
 data HTTPValidationFailure
     = HVRequest FE.HTTPFailure

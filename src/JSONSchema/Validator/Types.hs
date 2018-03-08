@@ -1,4 +1,3 @@
-
 module JSONSchema.Validator.Types where
 
 import           Import

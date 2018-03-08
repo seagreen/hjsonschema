@@ -1,22 +1,18 @@
-
 module JSONSchema.Draft4.Spec where
 
 import           Import
 
-import           Data.Maybe                     (fromMaybe)
-import           Data.Profunctor                (Profunctor(..))
+import           Data.Maybe (fromMaybe)
+import           Data.Profunctor (Profunctor(..))
 
 import           JSONSchema.Draft4.Failure
-import           JSONSchema.Draft4.Schema       (Schema(..),
-                                                 emptySchema)
-import           JSONSchema.Fetch               (SchemaWithURI(..),
-                                                 URISchemaMap(..))
-import qualified JSONSchema.Fetch               as FE
-import           JSONSchema.Types               (Spec(..))
-import qualified JSONSchema.Types               as JT
+import           JSONSchema.Draft4.Schema (Schema(..), emptySchema)
+import           JSONSchema.Fetch (SchemaWithURI(..), URISchemaMap(..))
+import qualified JSONSchema.Fetch as FE
+import           JSONSchema.Types (Spec(..))
+import qualified JSONSchema.Types as JT
 import           JSONSchema.Validator.Draft4
-import           JSONSchema.Validator.Reference (BaseURI(..),
-                                                 Scope(..),
+import           JSONSchema.Validator.Reference (BaseURI(..), Scope(..),
                                                  updateResolutionScope)
 
 -- | An implementation of 'JT.embedded'.
@@ -43,7 +39,7 @@ specValidate schemaMap sw =
                                                     (_schemaId (_swSchema sw))
         }
 
-validateSubschema 
+validateSubschema
     :: URISchemaMap Schema
     -> VisitedSchemas
     -> Scope Schema

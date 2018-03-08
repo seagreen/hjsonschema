@@ -5,28 +5,23 @@
 -- to copy this module instead of the 'JSONSchema.Draft4'. While it's
 -- less convenient to write schemas in Haskell without a record type, you
 -- can get the implementation finished with far fewer lines of code.
-
 module AlternateSchema where
 
 import           Protolude
 
-import           Data.Aeson                     (FromJSON(..), Value(..),
-                                                 decodeStrict)
-import qualified Data.Aeson                     as AE
-import qualified Data.HashMap.Strict            as HM
-import           Data.Maybe                     (fromMaybe)
-import           Data.Profunctor                (Profunctor (..))
+import           Data.Aeson (FromJSON(..), Value(..), decodeStrict)
+import qualified Data.Aeson as AE
+import qualified Data.HashMap.Strict as HM
+import           Data.Maybe (fromMaybe)
+import           Data.Profunctor (Profunctor(..))
 
-import           JSONSchema.Draft4              (ValidatorFailure(..),
-                                                 metaSchemaBytes)
-import           JSONSchema.Fetch               (SchemaWithURI(..),
-                                                 URISchemaMap(..))
-import qualified JSONSchema.Fetch               as FE
-import           JSONSchema.Types               (Schema(..), Spec(..))
-import qualified JSONSchema.Types               as JT
-import qualified JSONSchema.Validator.Draft4    as D4
-import           JSONSchema.Validator.Reference (BaseURI(..),
-                                                 Scope(..),
+import           JSONSchema.Draft4 (ValidatorFailure(..), metaSchemaBytes)
+import           JSONSchema.Fetch (SchemaWithURI(..), URISchemaMap(..))
+import qualified JSONSchema.Fetch as FE
+import           JSONSchema.Types (Schema(..), Spec(..))
+import qualified JSONSchema.Types as JT
+import qualified JSONSchema.Validator.Draft4 as D4
+import           JSONSchema.Validator.Reference (BaseURI(..), Scope(..),
                                                  updateResolutionScope)
 
 --------------------------------------------------

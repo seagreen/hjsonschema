@@ -1,19 +1,18 @@
-
 module Main where
 
 import           Protolude
 
 import           Data.Aeson
 import qualified Data.List.NonEmpty as NE
-import qualified System.Timeout     as TO
+import qualified System.Timeout as TO
 import           Test.Hspec
-import           Test.QuickCheck    (property)
+import           Test.QuickCheck (property)
 
-import qualified JSONSchema.Draft4  as D4
-import qualified JSONSchema.Types   as JT
+import qualified JSONSchema.Draft4 as D4
+import qualified JSONSchema.Types as JT
 import qualified Local.Failure
-import qualified Local.Validation
 import qualified Local.Reference
+import qualified Local.Validation
 import           Shared
 
 -- Examples
