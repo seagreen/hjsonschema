@@ -1,50 +1,32 @@
-![hjsonschema logo](./logo.jpg)
+# Summary
 
-A Haskell implementation of [JSON Schema](http://json-schema.org/) ([Draft 4](https://github.com/json-schema-org/json-schema-spec/wiki/Specification-Links#draft-4)).
+A Haskell implementation of [JSON Schema](http://json-schema.org/) ([Draft 4](http://json-schema.org/specification-links.html)).
 
 [Hackage](https://hackage.haskell.org/package/hjsonschema) / [GitHub](https://github.com/seagreen/hjsonschema) / [Travis CI](https://travis-ci.org/seagreen/hjsonschema)
-
-# Notes
-
-+ As of 2017 [json-schema-org](https://github.com/json-schema-org/json-schema-spec) has begun releasing new drafts of the standard. Once this work stabilizes `hjsonschema` will add coverage for the latest draft.
-
-+ Requires [pcre](http://www.pcre.org/) (`pkgs.pcre` in Nixpkgs).
-
-+ Schemas with circular references can cause infinite loops. hjsonschema does loop detection but it may not be solid yet -- please open an issue if you find a situation where it fails.
 
 # Example
 
 See [here](https://github.com/seagreen/hjsonschema/blob/master/examples/Simple.hs).
 
+# Design
+
+`hjsonschema` was an attempt to build a very modular JSON Schema library. Validators have [a concrete type](src/JSONSchema/Validator/Types.hs) and can be mixed and matched into new [Specs](src/JSONSchema/Types.hs).
+
+However this flexibility comes at the price of complicating the code. I'm no longer sure it was the right tradeoff, especially since situations where you'd want to change what validators make up a `Spec` at runtime seem rare.
+
+Also, there are edge cases of JSON Schema that `hjsonschema` doesn't implement properly (as you can see from the issue tracker). My motivation to fix them myself has ended. However, I'll still maintain the library, give feedback on issues, and merge PRs. I'd also be happy to advise any Haskellers who are interested in writing their own JSON Schema libraries.
+
+# System dependencies
+
++ Requires [pcre](http://www.pcre.org/) (`pkgs.pcre` in Nixpkgs).
+
 # Tests
 
-Run all tests:
+Run all: `stack test`
 
-`stack test`
+Run only local tests: `stack test hjsonschema:local`
 
-Run only local tests:
-
-`stack test hjsonschema:local`
-
-Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP server on port 1234):
-
-`stack test hjsonschema:remote`
-
-# Details
-
-## Goals
-
-+ Be a correct and fast implementation of the spec.
-
-+ Be a useful reference for implementers in other languages. Haskell's high level nature, expressive type system and referential transparency suit this purpose well.
-
-## Issues
-
-+ Doesn't pass all of the tests in the [language agnostic test suite](https://github.com/json-schema/JSON-Schema-Test-Suite). See the issue list for details.
-
-+ Uses the [pcre-heavy](https://hackage.haskell.org/package/pcre-heavy) regular expression library for the "pattern" validator. It should use a library based on the ECMA 262 regex dialect, which the [spec](http://json-schema.org/latest/json-schema-validation.html#anchor33) requires.
-
-+ Currently doesn't support the optional `"format"` validators.
+Run only remote tests (temporarily starts an HTTP server on port 1234 and makes GETs to json-schema.org): `stack test hjsonschema:remote`
 
 ## Vendoring
 
@@ -53,11 +35,3 @@ Run remote tests (makes GETs to json-schema.org, also temporarily starts an HTTP
 + `src/draft4.json` is from commit # c1b12bf699f29a04b4286711c6e3bbfba66f21e5 [here](https://github.com/json-schema/json-schema). The [root ref in remote ref](./JSON-Schema-Test-Suite/tests/draft4/refRemote.json) test has been modified to fix [#175](https://github.com/json-schema-org/JSON-Schema-Test-Suite/issues/175).
 
 + `.travis.yml` was created with `make_travis_yml_2.hs` commit # ea6c7d177a97bfbfb2fdc4deba943d60d2aff199.
-
-## Credits
-
-[TJ Weigel](http://tjweigel.com/) created the logo.
-
-[Tim Baumann](https://github.com/timjb) wrote [aeson-schema](https://hackage.haskell.org/package/aeson-schema), on which hjsonschema's test code and its implementation of `SchemaGraph` were based.
-
-[Julian Berman](https://github.com/Julian) maintains the fantastic [language agnostic test suite](https://github.com/json-schema/JSON-Schema-Test-Suite).
