@@ -24,9 +24,10 @@ newtype BaseURI
 type URIAndFragment = (Maybe Text, Maybe Text)
 
 updateResolutionScope :: BaseURI -> Maybe Text -> BaseURI
-updateResolutionScope base idKeyword
-    | Just t <- idKeyword = BaseURI . fst . baseAndFragment $ resolveScopeAgainst base t
-    | otherwise           = base
+updateResolutionScope base idKeyword =
+    case idKeyword of
+        Just t  -> BaseURI . fst . baseAndFragment $ resolveScopeAgainst base t
+        Nothing -> base
 
 resolveReference :: BaseURI -> Text -> URIAndFragment
 resolveReference base t = baseAndFragment (resolveScopeAgainst base t)
