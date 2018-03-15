@@ -9,6 +9,7 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Network.HTTP.Client as NC
+import qualified Network.HTTP.Client.TLS as NCTLS
 
 import           JSONSchema.Validator.Reference (BaseURI(..), resolveReference,
                                                  updateResolutionScope)
@@ -59,7 +60,7 @@ referencesViaHTTP'
     -> SchemaWithURI schema
     -> IO (Either HTTPFailure (URISchemaMap schema))
 referencesViaHTTP' info sw = do
-    manager <- NC.newManager NC.defaultManagerSettings
+    manager <- NC.newManager NCTLS.tlsManagerSettings
     let f = referencesMethodAgnostic (getURL manager) info sw
     catch (first HTTPParseFailure <$> f) handler
   where
