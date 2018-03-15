@@ -69,6 +69,7 @@ library
     , hjsonpointer         >= 1.1
     -- 0.4.30 is for parseUrlThrow:
     , http-client          >= 0.4.30
+    , http-client-tls      >= 0.3
     , http-types           >= 0.8
     , pcre-heavy           >= 1.0
     , profunctors          >= 5.0
