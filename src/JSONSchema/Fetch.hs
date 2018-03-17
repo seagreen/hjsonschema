@@ -2,7 +2,7 @@ module JSONSchema.Fetch where
 
 import           Import
 
-import           Control.Exception (IOException, catch)
+import qualified Control.Exception.Safe as Safe
 import           Control.Monad (foldM)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
@@ -62,7 +62,7 @@ referencesViaHTTP'
 referencesViaHTTP' info sw = do
     manager <- NC.newManager NCTLS.tlsManagerSettings
     let f = referencesMethodAgnostic (getURL manager) info sw
-    catch (first HTTPParseFailure <$> f) handler
+    Safe.catch (first HTTPParseFailure <$> f) handler
   where
     getURL :: NC.Manager -> Text -> IO BS.ByteString
     getURL man url = do
@@ -88,7 +88,8 @@ referencesViaFilesystem'
     => FetchInfo schema
     -> SchemaWithURI schema
     -> IO (Either FilesystemFailure (URISchemaMap schema))
-referencesViaFilesystem' info sw = catch (first FSParseFailure <$> f) handler
+referencesViaFilesystem' info sw =
+  Safe.catch (first FSParseFailure <$> f) handler
   where
     f :: IO (Either Text (URISchemaMap schema))
     f = referencesMethodAgnostic (BS.readFile . T.unpack) info sw
