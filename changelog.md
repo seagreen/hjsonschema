@@ -1,3 +1,8 @@
+# 1.8.0
+
++ Allow HTTPS references (thanks @creichert!).
++ Use `safe-exceptions` to eliminate the risk of catching asynchronous exceptions.
+
 # 1.7.2
 
 + Remove upper bounds.

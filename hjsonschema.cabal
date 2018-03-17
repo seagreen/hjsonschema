@@ -1,5 +1,5 @@
 name:               hjsonschema
-version:            1.7.2
+version:            1.8.0
 synopsis:           JSON Schema library
 homepage:           https://github.com/seagreen/hjsonschema
 license:            MIT

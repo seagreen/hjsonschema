@@ -1,7 +1,2 @@
 resolver: lts-10.8
-# packages:
-#   - './'
-#   - location: '../hjsonpointer'
-#     extra-dep: true
-extra-deps:
-  - hjsonpointer-1.3.0
+pvp-bounds: upper-revision
