@@ -4,6 +4,7 @@ import           Import hiding ((<>))
 
 import           Data.Aeson.TH (constructorTagModifier)
 import           Data.Char (toLower)
+import qualified Data.HashMap.Strict as HM
 import           Data.List.NonEmpty (NonEmpty((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Scientific as SCI
@@ -133,7 +134,7 @@ data JSONPointerError
     deriving (Eq, Show)
 
 resolveFragment
-    :: forall schema. (FromJSON schema, ToJSON schema)
+    :: (FromJSON schema, ToJSON schema)
     => (BaseURI -> schema -> BaseURI)
     -> Scope schema
     -> Text
@@ -158,17 +159,40 @@ resolveFragment updateScope scope fragment = do
     -- as property keys that aren't meant to change scope?
     -- Perhaps this should be added to the language agnostic
     -- test suite as well.
+    --
+    -- In the meantime 'newBaseURIFromFragment' drops all keys
+    -- from JSON objects except "id", which at least prevents
+    -- SubschemaDecodingError in a situation where one of the
+    -- values we step through isn't a valid schema.
     go :: (Value, BaseURI)
        -> JP.Token
        -> Either JSONPointerError (Value, BaseURI)
-    go (lastVal, uri) tok = do
+    go (lastVal, baseURI) tok = do
         v <- first ResolutionError (JP.resolveToken tok lastVal)
-        case v of
-            Array _ -> pure (v, uri)
-            _       -> do
-                -- PERFORMANCE: Avoid deserializing subschemas.
-                schema <- first SubschemaDecodingError (fromJSONEither v)
-                pure (v, updateScope uri schema)
+        newBase <- newBaseURIFromFragment updateScope baseURI v
+        Right (v, newBase)
+
+-- | Update the 'BaseURI' (the store of the current "id" value)
+-- after resolving one token of a JSON Pointer and stepping into
+-- a new 'Value'.
+newBaseURIFromFragment
+    :: FromJSON schema
+    => (BaseURI -> schema -> BaseURI)
+    -> BaseURI
+    -> Value
+    -> Either JSONPointerError BaseURI
+newBaseURIFromFragment updateScope baseURI v =
+  case v of
+    Object hm -> do
+      let hmWithOnlyId = case HM.lookup idKey hm of
+                           Nothing    -> mempty
+                           Just idVal -> HM.singleton idKey idVal
+      schema <- first SubschemaDecodingError (fromJSONEither (Object hmWithOnlyId))
+      Right (updateScope baseURI schema)
+    _ -> Right baseURI
+  where
+    idKey :: Text
+    idKey = "id"
 
 --------------------------------------------------
 -- * enum
