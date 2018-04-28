@@ -10,7 +10,7 @@ category:           Data
 build-type:         Simple
 cabal-version:      >=1.10
 -- Rerun multi-ghc-travis (executable make-travis-yml-2) after changing:
-Tested-With:        GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.1
+Tested-With:        GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.1
 extra-source-files:
   changelog.md
   JSON-Schema-Test-Suite/remotes/*.json
@@ -77,12 +77,9 @@ library
     , QuickCheck           >= 2.8
     , safe-exceptions      >= 0.1.6
     , scientific           >= 0.3
-    , semigroups           >= 0.18
     , unordered-containers >= 0.2
     , text                 >= 1.1
     , vector               >= 0.10
-  if impl(ghc < 8.0)
-    build-depends: semigroups == 0.18.*
 
 test-suite local
   hs-source-dirs:
@@ -117,7 +114,6 @@ test-suite local
     , hjsonschema
     , profunctors
     , protolude
-    , semigroups
     , text
     , QuickCheck
     , unordered-containers
@@ -156,7 +152,6 @@ test-suite remote
     , hjsonschema
     , profunctors
     , protolude
-    , semigroups
     , text
     , unordered-containers
     , vector
