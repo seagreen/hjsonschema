@@ -1,5 +1,11 @@
 # 1.8.0
 
++ Add GHC 8.4 support (thanks @4e6 !).
++ Drop GHC 7.10 support.
++ Fix JSON Pointer resolution error.
+
+# 1.8.0
+
 + Allow HTTPS references (thanks @creichert!).
 + Use `safe-exceptions` to eliminate the risk of catching asynchronous exceptions.
 
