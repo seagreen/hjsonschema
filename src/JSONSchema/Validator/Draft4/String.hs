@@ -22,10 +22,8 @@ data MaxLengthInvalid
     = MaxLengthInvalid MaxLength Text
     deriving (Eq, Show)
 
--- | The spec requires @"maxLength"@ to be non-negative.
 maxLengthVal :: MaxLength -> Text -> Maybe MaxLengthInvalid
 maxLengthVal a@(MaxLength n) x
-    | n <= 0         = Nothing
     | T.length x > n = Just (MaxLengthInvalid a x)
     | otherwise      = Nothing
 
@@ -45,10 +43,8 @@ data MinLengthInvalid
     = MinLengthInvalid MinLength Text
     deriving (Eq, Show)
 
--- | The spec requires @"minLength"@ to be non-negative.
 minLengthVal :: MinLength -> Text -> Maybe MinLengthInvalid
 minLengthVal a@(MinLength n) x
-    | n <= 0         = Nothing
     | T.length x < n = Just (MinLengthInvalid a x)
     | otherwise      = Nothing
 
