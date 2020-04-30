@@ -69,6 +69,8 @@ patternVal :: PatternValidator -> Text -> Maybe PatternInvalid
 patternVal a@(PatternValidator t) x =
     case RE.compileM (encodeUtf8 t) mempty of
         Left _   -> Just PatternNotRegex
-        Right re -> if x RE.=~ re
+        Right re -> if input RE.=~ re
                         then Nothing
                         else Just (PatternInvalid a x)
+  where
+    input = T.unpack x -- workaround for a bug in pcre-light
