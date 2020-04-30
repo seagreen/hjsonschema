@@ -1,0 +1,7 @@
+:set -isrc
+:set -XDeriveFunctor
+:set -XDeriveGeneric
+:set -XGeneralizedNewtypeDeriving
+:set -XNoImplicitPrelude
+:set -XOverloadedStrings
+:set -XScopedTypeVariables
