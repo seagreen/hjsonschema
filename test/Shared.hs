@@ -14,7 +14,7 @@ import           System.FilePath ((</>))
 import           Test.Hspec
 
 skipTest :: FilePath -> Bool
-skipTest file = (file == "optional/format.json") -- Optional
+skipTest file = (file == "optional/format.json")
              || (file == "optional/zeroTerminatedFloats.json")
              || (file == "optional/ecmascript-regex.json")
 
