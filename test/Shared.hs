@@ -14,7 +14,7 @@ import           System.FilePath ((</>))
 import           Test.Hspec
 
 skipTest :: FilePath -> Bool
-skipTest file = (file == "optional/format.json") -- Optional
+skipTest file = (file == "optional/format.json")
              || (file == "optional/zeroTerminatedFloats.json")
              || (file == "optional/ecmascript-regex.json")
 
@@ -109,12 +109,12 @@ toTest validate st =
                  Error e   -> panic ("Couldn't parse schema: " <> show e)
                  Success a -> a
 
-assertResult :: Show err => SchemaTestCase -> [err] -> Expectation
+assertResult :: (HasCallStack, Show err) => SchemaTestCase -> [err] -> Expectation
 assertResult sc failures
     | _scValid sc = assertValid sc failures
     | otherwise   = assertInvalid sc failures
 
-assertValid :: Show err => SchemaTestCase -> [err] -> Expectation
+assertValid :: (HasCallStack, Show err) => SchemaTestCase -> [err] -> Expectation
 assertValid _ [] = pure ()
 assertValid sc failures =
     expectationFailure $ unlines
@@ -124,7 +124,7 @@ assertValid sc failures =
         , "    Validation failures: " <> show failures
         ]
 
-assertInvalid :: SchemaTestCase -> [err] -> Expectation
+assertInvalid :: HasCallStack => SchemaTestCase -> [err] -> Expectation
 assertInvalid sc [] =
     expectationFailure $ unlines
         [ "    Validated invalid data"

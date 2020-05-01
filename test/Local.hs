@@ -62,7 +62,7 @@ main = do
             Nothing -> expectationFailure "timeout expired"
             Just a  -> pure a
 
-    validate :: D4.Schema -> SchemaTestCase -> Expectation
+    validate :: HasCallStack => D4.Schema -> SchemaTestCase -> Expectation
     validate s sc = do
         res <- D4.fetchHTTPAndValidate (D4.SchemaWithURI s Nothing) (_scData sc)
         let failures = case res of
@@ -72,7 +72,7 @@ main = do
                                                        <> show other)
         assertResult sc failures
 
-    validateExample :: JT.Schema -> SchemaTestCase -> Expectation
+    validateExample :: HasCallStack => JT.Schema -> SchemaTestCase -> Expectation
     validateExample s sc = do
         res <- AlternateSchema.referencesViaHTTP (D4.SchemaWithURI s Nothing)
         case res of
