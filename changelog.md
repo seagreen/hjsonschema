@@ -1,3 +1,7 @@
+# 1.10.0
+
++ String match fixes (thanks @sol !).
+
 # 1.8.0
 
 + Add GHC 8.4 support (thanks @4e6 !).
