@@ -4,7 +4,7 @@
 
 However this flexibility came at the price of complicating the code. I don't think it was the right tradeoff, especially since situations where you'd want to change what validators make up a `Spec` at runtime seem rare.
 
-Also, there are many parts of JSON Schema that `hjsonschema` doesn't implement properly (as you can see from the issue tracker). I'm hoping that a new JSON Schema library will come along that handles these correctly. In the meantime I'm happy to merge working fixes into here.
+Also, there are many parts of JSON Schema that `hjsonschema` doesn't implement properly (as you can see from the issue tracker). I'm hoping that a new JSON Schema library will come along that handles these correctly.
 
 # Links
 
